@@ -113,3 +113,45 @@ somente quando seu escopo estiver concluído e validado; revisão e merge são
 manuais. Para servir o build com BrowserRouter, o servidor estático deverá
 oferecer fallback para `index.html` nas rotas da aplicação; deploy não faz parte
 deste bootstrap.
+
+## Design System Neon — FE-VISUAL.03
+
+A rota `/base-visual` é o catálogo dos componentes implementados. Paleta,
+tipografia, painéis, botões, badges e estados são identificados como demonstração
+visual, sem métricas ou operações do backend. Seus botões de demonstração
+produzem somente feedback local; os links de retorno navegam ao Dashboard.
+
+Os tokens em `src/styles/tokens.css` centralizam superfícies e elevações, cores
+semânticas, hierarquia tipográfica, espaçamentos, raios, bordas, sombras, brilho,
+foco e transições. `global.css` mantém os componentes visuais compartilhados;
+`layout.css` adapta o shell aprovado e as composições do catálogo. Não há fontes
+externas, frameworks CSS, vídeos, canvas ou partículas.
+
+- **NeonPanel:** mantém `title`, `eyebrow`, `children`, `className` e `id`.
+  O novo slot opcional `action` recebe um controle real no cabeçalho. A seção
+  continua sendo informativa, sem `onClick`, papel de botão ou foco artificial.
+  O brilho de interação só acompanha o hover/foco de seu controle de ação.
+- **NeonButton:** variantes `primary`, `secondary` e `ghost`. Sem `to`, renderiza
+  um botão nativo com `type="button"` por padrão. `disabled` e `loading` impedem
+  acionamentos; loading também informa `aria-busy`. Com `to`, renderiza um Link
+  do React Router, sem simular botão ou aceitar disabled/loading.
+- **NeonBadge:** variantes visuais `neutral`, `info`, `success`, `warning` e
+  `error`. Exibe símbolo e texto, sem anunciar operação ao vivo ou converter
+  estados de negócio. O consumidor continua responsável pelo rótulo verdadeiro.
+- **StatusMessage:** preserva `tone` e `children`, `status` para informação,
+  carregamento e sucesso, e `alert` para erro. Ícones decorativos e um prefixo
+  textual acessível distinguem os estados sem depender apenas da cor.
+
+Foco de teclado tem contorno visível. Apenas os indicadores explícitos de
+carregamento giram; `prefers-reduced-motion: reduce` elimina animações e
+transições, mantendo texto e símbolos estáticos para comunicar o estado.
+
+Comparação com o mockup: reproduzidos azul-preto, azul elétrico/ciano, superfícies
+escuras translúcidas, reflexos nas bordas, profundidade controlada, badges compactos
+e hierarquia legível. O catálogo não pretende reproduzir o dashboard completo ou
+ser pixel-perfect. Hero com braços robóticos/cidade, vídeo de partículas,
+indicadores, pipeline e dados operacionais dependem das etapas seguintes.
+
+Os testes focados de UI cobrem contratos de painel, controles de ação, estados,
+teclado, disabled/loading, semântica de links/badges e feedback local do catálogo.
+As regressões do bootstrap continuam cobrindo Dashboard, menu, rotas e cliente HTTP.
