@@ -107,10 +107,10 @@ posteriores, com verificação de licença e contratos.
 
 ## Estado Git
 
-Bootstrap na branch `master`, ainda sem commit. O primeiro commit, push e PR
-dependem de tarefa posterior explícita. Um PR do tópico-pai será preparado
-somente quando seu escopo estiver concluído e validado; revisão e merge são
-manuais. Para servir o build com BrowserRouter, o servidor estático deverá
+O bootstrap e o Design System Neon estão versionados na branch `master`.
+FE-VISUAL.04 entrega o layout local; commit, push e PR dependem de tarefa
+explícita. Revisão e merge são manuais.
+Para servir o build com BrowserRouter, o servidor estático deverá
 oferecer fallback para `index.html` nas rotas da aplicação; deploy não faz parte
 deste bootstrap.
 
@@ -155,3 +155,46 @@ indicadores, pipeline e dados operacionais dependem das etapas seguintes.
 Os testes focados de UI cobrem contratos de painel, controles de ação, estados,
 teclado, disabled/loading, semântica de links/badges e feedback local do catálogo.
 As regressões do bootstrap continuam cobrindo Dashboard, menu, rotas e cliente HTTP.
+
+## Layout e navegação — FE-VISUAL.04
+
+O Dashboard segue a organização espacial do mockup: sidebar persistente à
+esquerda, header compacto, hero com indicadores à direita, pipeline em largura
+total, fila/processamentos/publicações em três painéis e integração na base.
+Em telas menores, os indicadores passam para baixo do hero, os painéis se
+reorganizam e o menu se expande no fluxo da página. O conteúdo pode rolar
+verticalmente; a sidebar desktop também tem rolagem própria quando necessário.
+
+Somente Dashboard e Base visual são links na sidebar. Campanhas, Pipeline,
+Mídia, Publicação e Relatórios aparecem no grupo de módulos futuros, claramente
+indisponíveis e sem controles de navegação. O header mostra a localização e o
+ambiente local, sem simular usuário, notificações ou disponibilidade da API.
+
+O botão de menu expõe seu estado e a região controlada. Escape fecha o menu e
+restaura o foco ao botão. Navegar fecha o menu, transfere o foco ao conteúdo e
+posiciona a nova página no topo, sem rolagem animada. O link para pular ao
+conteúdo e os contornos de foco continuam disponíveis.
+
+`DashboardHero` separa texto, link para o catálogo e espaço holográfico estático
+em CSS. `MetricPlaceholder` apresenta rótulo e valor indisponível numa lista
+de definições; o traço visual nunca significa zero. `OperationalEmptyState`
+compartilha a apresentação das áreas aguardando integração. Os painéis usam
+`NeonPanel`, os controles usam `NeonButton`, e os avisos reutilizam `NeonBadge`
+e `StatusMessage`. Os tokens e componentes do FE-VISUAL.03 foram preservados.
+
+Não há métricas, percentuais, etapas do pipeline, campanhas ou publicações
+inventadas. “Ainda não consultada” descreve ausência de integração, sem afirmar
+que a fila real está vazia. Configuração de URL não comprova conexão. Nenhuma
+consulta HTTP é iniciada ao renderizar o dashboard.
+
+Verificação local: testes de montagem, rotas, catálogo e 404; teclado, Escape,
+fechamento do menu e foco; indicadores sem números artificiais; áreas
+operacionais pendentes; estados de configuração da API sem consultas automáticas.
+Os testes usam mocks e não validam integração operacional. A inspeção visual
+no navegador cobriu 1440×900, 1280×800, 768×1024 e 390×844, sem overflow
+horizontal no dashboard. O catálogo também foi conferido no mobile.
+
+A composição usa apenas CSS e ícones SVG locais, sem imagens, vídeos, canvas,
+3D ou novas dependências. A regra existente de movimento reduzido permanece
+ativa; o dashboard não introduz animações. A composição cinematográfica do hero
+fica para FE-VISUAL.05; integrações e dados reais dependem de tópicos posteriores.

@@ -1,16 +1,19 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
-import { beforeEach, expect, test } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest'
 import { App } from './App'
 import { AppRoutes } from './AppRoutes'
 import { AppShell } from '../components/layout/AppShell'
 
-beforeEach(() => window.history.replaceState(null, '', '/'))
+beforeEach(() => {
+  window.history.replaceState(null, '', '/')
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+})
 
 test('monta a aplicação sem inventar dados ou consultar o backend', () => {
   render(<App />)
-  expect(screen.getByRole('heading', { name: /uma nova base para sua operação/i })).toBeVisible()
+  expect(screen.getByRole('heading', { name: /sua operação. uma nova dimensão/i })).toBeVisible()
   expect(screen.getByText('Nenhum dado operacional carregado')).toBeVisible()
   expect(fetch).not.toHaveBeenCalled()
 })
@@ -26,6 +29,7 @@ test('AppShell oferece navegação, cabeçalho, conteúdo e menu acessível', as
   expect(toggle).toHaveAttribute('aria-expanded', 'true')
   await user.keyboard('{Escape}')
   expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  expect(toggle).toHaveFocus()
 })
 
 test('navega entre Dashboard e Base visual e sinaliza a rota atual', async () => {
@@ -35,7 +39,7 @@ test('navega entre Dashboard e Base visual e sinaliza a rota atual', async () =>
   expect(screen.getByRole('heading', { name: 'Uma linguagem visual compartilhada.' })).toBeVisible()
   expect(screen.getByRole('link', { name: 'Base visual' })).toHaveAttribute('aria-current', 'page')
   await user.click(screen.getByRole('link', { name: 'Dashboard' }))
-  expect(screen.getByRole('heading', { name: /uma nova base para sua operação/i })).toBeVisible()
+  expect(screen.getByRole('heading', { name: /sua operação. uma nova dimensão/i })).toBeVisible()
 })
 
 test('rota desconhecida permite retornar ao dashboard', async () => {
@@ -43,5 +47,33 @@ test('rota desconhecida permite retornar ao dashboard', async () => {
   render(<MemoryRouter initialEntries={['/nao-existe']}><AppRoutes /></MemoryRouter>)
   expect(screen.getByRole('heading', { name: 'Página não encontrada' })).toBeVisible()
   await user.click(screen.getByRole('link', { name: 'Voltar ao dashboard' }))
-  expect(screen.getByRole('heading', { name: /uma nova base para sua operação/i })).toBeVisible()
+  expect(screen.getByRole('heading', { name: /sua operação. uma nova dimensão/i })).toBeVisible()
+})
+
+test('menu permite navegar por teclado, fecha após navegar e transfere o foco ao conteúdo', async () => {
+  const user = userEvent.setup()
+  render(<MemoryRouter><AppRoutes /></MemoryRouter>)
+  const toggle = screen.getByRole('button', { name: 'Abrir menu' })
+  await user.click(toggle)
+  await user.tab()
+  expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveFocus()
+  await user.tab()
+  expect(screen.getByRole('link', { name: 'Base visual' })).toHaveFocus()
+  await user.keyboard('{Enter}')
+  expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.getByRole('main')).toHaveFocus()
+  expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' })
+  expect(screen.getByRole('navigation', { name: 'Localização' })).toHaveTextContent('Base visual')
+  expect(screen.getByRole('heading', { name: 'Paleta e tokens' })).toBeVisible()
+  expect(fetch).not.toHaveBeenCalled()
+})
+
+test('sidebar oferece apenas rotas existentes e identifica módulos futuros sem controles falsos', () => {
+  render(<MemoryRouter><AppRoutes /></MemoryRouter>)
+  const nav = screen.getByRole('navigation', { name: 'Navegação principal' })
+  expect(Array.from(nav.querySelectorAll('a')).map((link) => link.getAttribute('href'))).toEqual(['/', '/base-visual'])
+  const future = screen.getByRole('region', { name: 'MÓDULOS FUTUROS' })
+  expect(future).toHaveTextContent('Indisponíveis nesta etapa')
+  expect(future.querySelectorAll('a, button, [tabindex]').length).toBe(0)
+  expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page')
 })
