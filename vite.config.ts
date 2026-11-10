@@ -23,8 +23,14 @@ export default defineConfig(({ mode }) => {
       '^/affiliate/campaigns/[a-z0-9][a-z0-9_-]{2,79}/revisions/[1-9][0-9]*(?:\\?|$)': readOnly,
     } } }),
   }
+  const operationalQueueReads: Plugin = {
+    name: 'mktauto-operational-queue-reads',
+    config: () => ({ server: { proxy: {
+      '^/publishing/executions/queue(?:\\?|$)': readOnly,
+    } } }),
+  }
   return {
-    plugins: [react(), campaignRevisionReads],
+    plugins: [react(), campaignRevisionReads, operationalQueueReads],
     server: { proxy: {
       '^/operations(?:/|\\?|$)': options,
       // Exact asset-list endpoint; hero files under /media/ remain static and local.
