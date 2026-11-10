@@ -43,8 +43,9 @@ test('áreas operacionais explicam a integração pendente sem simular etapas ou
   const panels = [
     ['Pipeline de campanhas', 'Estados ainda não consultados.'],
     ['Fila e execuções', 'Nenhuma amostra de execuções disponível para exibição.'],
-    ['Processamentos em andamento', 'Processamentos indisponíveis'],
-    ['Publicações recentes', 'Publicações ainda não consultadas'],
+    ['Acompanhamento de processamentos', 'Configure a origem local da API para consultar as execuções.'],
+    ['Mídias vinculadas', 'Consulta indisponível. É necessária uma API na mesma origem HTTP local com sessão QC.'],
+    ['Publicações da execução', 'Consulta indisponível. É necessária uma API na mesma origem HTTP local com sessão QC.'],
   ] as const
   for (const [name, message] of panels) {
     const panel = screen.getByRole('region', { name })
@@ -148,7 +149,7 @@ test('execuções e filtros da amostra preservam indicadores globais, hero e GET
   render(<MemoryRouter><DashboardPage /></MemoryRouter>)
   await screen.findByRole('article', { name: 'Execução execution_running' })
   expect(within(row('Execuções em processamento')).getByText('157')).toBeVisible()
-  await user.selectOptions(screen.getByRole('combobox'), 'SCHEDULED')
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Filtrar estados da amostra' }), 'SCHEDULED')
   expect(screen.queryByRole('article', { name: 'Execução execution_running' })).not.toBeInTheDocument()
   expect(screen.getByRole('article', { name: 'Execução execution_scheduled' })).toBeVisible()
   expect(screen.getByRole('heading', { name: /sua operação. uma nova dimensão/i })).toBeVisible()
@@ -169,4 +170,30 @@ test('uma falha de sessão nas execuções não invalida os indicadores recebido
   expect(within(queue).getByRole('link')).toHaveAttribute('href', '/operations')
   expect(screen.queryByRole('article')).not.toBeInTheDocument()
   expect(within(row('Publicações simuladas · FAKE')).getByText('2')).toBeVisible()
+})
+
+test('seleção consulta apenas o run e os destinos correspondentes sem duplicar execuções ou alterar indicadores', async () => {
+  configure()
+  const executions = ['RUNNING', 'SUCCEEDED'].map((status, index) => ({ execution_id: `execution_${index}`, campaign_id: 'campaign_001', campaign_revision: 1, run_id: `run_${index}`, version: 1, status }))
+  const urls: string[] = []
+  vi.mocked(fetch).mockImplementation(input => {
+    const url = String(input); urls.push(url)
+    return Promise.resolve(new Response(JSON.stringify(url.endsWith('/operations/executions') ? executions : url.endsWith('/dashboard/summary') ? { ...summary(), runningExecutions: 157 } : [])))
+  })
+  const user = userEvent.setup()
+  render(<MemoryRouter><DashboardPage /></MemoryRouter>)
+  await screen.findByRole('article', { name: 'Processamento execution_0' })
+  expect(fetch).toHaveBeenCalledTimes(2)
+  const select = screen.getByRole('combobox', { name: 'Execução para consultar mídias e publicações' })
+  await user.selectOptions(select, 'execution_1')
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(4))
+  expect(urls).toContain(`${window.location.origin}/media/assets?pipelineRunId=run_1`)
+  expect(urls).toContain(`${window.location.origin}/publishing/executions/execution_1/destinations`)
+  await waitFor(() => expect(within(screen.getByRole('region', { name: 'Mídias vinculadas' })).getByText('Nenhum registro retornado neste escopo.')).toBeVisible())
+  expect(within(row('Execuções em processamento')).getByText('157')).toBeVisible()
+  expect(urls.filter(url => url.endsWith('/operations/executions'))).toHaveLength(1)
+  await user.selectOptions(select, '')
+  expect(within(screen.getByRole('region', { name: 'Mídias vinculadas' })).getByText('Selecione uma execução para consultar mídias.')).toBeVisible()
+  expect(fetch).toHaveBeenCalledTimes(4)
+  expect(vi.mocked(fetch).mock.calls.every(([, options]) => options?.method === 'GET')).toBe(true)
 })

@@ -426,3 +426,104 @@ F007.03 hook; F007.04 pipeline; F007.05 fila; F007.06 testes/visual;
 F007.07 revisão e quality gate; F007.08 publicação da branch e Draft PR.
 Processamentos e publicações permanecem reservados ao FE-VISUAL.08. Não houve
 modificação de backend, operações reais, redistribuição de mídia ou deploy.
+
+## FE-VISUAL.08 — processamentos, ativos e operações sociais
+
+Acompanhamento somente de leitura, com seleção local de execução e atualização
+manual. Processamentos reutilizam **a mesma instância** de `useCampaignExecutions`
+da fila/pipeline: RUNNING = Processando, WAITING_INPUT = Aguardando insumo e
+WAITING_RECONCILIATION = Aguardando reconciliação. São registros da amostra de até
+100 execuções, nunca um total global. Não há percentual, duração, worker,
+estimativa, polling, cancelamento operacional, reprocessamento ou publicação.
+
+### Contratos auditados no backend (somente leitura)
+
+| GET | Identidade e escopo | Autenticação e limites |
+| --- | --- | --- |
+| `/operations/executions` | Projeção de CampaignAdministration.list; sete estados; filtros locais | LocalQcGuard; até 100 por updated_at DESC e execution_id; sem paginação |
+| `/media/assets?pipelineRunId=...` | Ativos do run da execução selecionada | O controlador de assets não declara guard; o frontend mantém a restrição de mesma origem HTTP loopback e credenciais de sessão; sem paginação/limite no contrato |
+| `/publishing/executions/:id/destinations` | Reservas sociais e operações vinculadas à execução, inclusive sucessoras retornadas | LocalQcGuard; sem ordem temporal, paginação ou limite documentados |
+
+Evidências: `OperationsService.detail` em
+`backend/src/operations/operations.service.ts` chama
+`media.listRun(context.execution.run_id)`; `MediaController.list` e
+`MediaService.listRun` encaminham pipelineRunId ao repositório em modo de leitura.
+`MediaAssetRepository.listMediaAssetsByPipelineRun` ordena por created_at,
+script_id, visual_direction_position, asset_type, revision e media_asset_id.
+Portanto, o vínculo run_id → pipelineRunId foi comprovado no serviço de operações,
+sem inferência baseada no nome do campo.
+
+`DestinationPublicationController.status` usa
+`DestinationPublicationService.status` → `PublishingPersistence.readDestinations`.
+Este leitor abre o banco read-only e consulta reservas canônicas por execution_id.
+Pode retornar a mesma operação por reservas legadas/atuais: o parser deduplica
+operationId com projeções idênticas e recusa conflitos. Operação nula continua
+indisponível. A listagem não consulta o histórico de eventos nem representa todas
+as publicações existentes. Não há junção com registros manuais ou soma de totais.
+
+`GET /publishing/manual-publications?packageHash=...` exige um pacote; a projeção
+de execução não fornece packageHash. Não é utilizado. Também foram examinadas
+as consultas de operação/histórico e o status Instagram; nenhuma consulta extra
+foi adicionada para montar um histórico global.
+
+### Representação e segurança
+
+- Ativos validam versões media-asset/1.0.0 e 2.0.0, vínculo exato ao run, tipo,
+  origem, identificador, revisão e timestamp. A tela mostra **ativo cadastrado**;
+  origem PROVIDER_GENERATED não comprova bytes materializados, aprovação ou
+  geração contabilizável. Inclui revisões retornadas, sem ocultar substituídas.
+- Prévia indisponível: o endpoint não entrega URL de prévia autorizada.
+  mediaReference, caminhos locais, URLs externas e evidências privadas são
+  descartados. Não há imagem/vídeo operacional carregado a partir desses dados.
+- Operações sociais exibem modo **FAKE · simulação** ou **LIVE · operação real**
+  por registro. Somente PUBLISHED é concluída, com conclusão simulada explicitada
+  em FAKE. FAILED, UNCERTAIN e estados intermediários não confirmam publicação.
+- Serviços validam respostas unknown antes da exibição. Só enviam GET, no-store,
+  credentials include e redirect error, com identificadores validados/codificados.
+  Os dois painéis só consultam após seleção válida da amostra; trocar/limpar a
+  seleção cancela requests e descarta respostas obsoletas. Retry é manual.
+- Ausência de seleção, loading, resposta vazia comprovada, 401/403, outros erros
+  HTTP, rede e contrato incompatível são distintos. Falha não vira lista vazia.
+  Indicadores globais permanecem independentes destes recortes.
+
+### Dependências de integração e validação
+
+O proxy de desenvolvimento existente em `vite.config.ts` encaminha somente
+`/operations`. Ele foi preservado por estar read-only nesta task. Para testar os
+dois novos GETs operacionalmente, o ambiente autorizado deve servir `/media` e
+`/publishing` na **mesma origem HTTP loopback**, preservando a sessão QC e o Host.
+Configurar apenas VITE_API_BASE_URL não estabelece esse roteamento. Sem ele,
+respostas HTML do fallback Vite são recusadas pelo parser. Não foi afrouxada a
+política de origem nem criado um transporte direto alternativo.
+
+LIVE_VALIDATION=NO. Na verificação desta entrega, o runtime em
+`http://127.0.0.1:3123` respondeu:
+
+- GET /operations/executions: HTTP 403, código QC_LOCAL_ACCESS_REQUIRED.
+  No fonte auditado, esse código vem da validação de endereço local em
+  LocalQcIdentity.authenticate. O endereço efetivamente observado pelo runtime
+  não está comprovado; não se conclui que seja apenas uma sessão expirada.
+- GET /operations/dashboard/summary: HTTP 404, embora a rota esteja declarada no
+  controlador auditado. É necessário confirmar separadamente a versão e o
+  roteamento do runtime. A causa exata não foi demonstrada neste escopo.
+
+Não houve login, contorno de autenticação, acesso direto a banco, operação de
+escrita, chamada paga ou alteração do backend. Sem execuções autenticadas, não
+foi possível selecionar IDs operacionais para comprovar os dois novos GETs.
+
+Validação offline: **215 testes PASS** (25 arquivos), build PASS, lint PASS e
+git diff --check PASS. Cobertura inclui identidade/contratos, estados de espera,
+seleção, erros HTTP/rede, 401/403, abort, respostas obsoletas, retry manual,
+deduplicação, FAKE/LIVE, ausência de ações de escrita e preservação dos indicadores,
+fila, pipeline, hero e comportamento existente de movimento reduzido.
+
+Validação visual: 1440×900, 1280×800, 768×1024 e 390×844, sem overflow horizontal
+da página ou cards, inclusive com IDs longos. Seleção, atualização manual,
+scroll por teclado com foco visível, navegação Base visual/Dashboard e hero
+preservados. Os novos painéis não têm animação. Foram usadas fixtures em um
+servidor temporário identificado como **TESTE VISUAL OFFLINE**, fora do produto;
+nenhuma fixture visual é distribuída como dado real. Também se verificou a tela
+sem fixtures: indisponibilidade real, seleção desabilitada e nenhum ativo fictício.
+
+Entrega em Draft PR: pendem sessão/origem QC funcional, rota de resumo no runtime,
+roteamento same-origin das duas consultas novas e validação LIVE de seus dados.
