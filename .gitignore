@@ -9,3 +9,7 @@ coverage/
 .DS_Store
 .idea/
 .vscode/
+
+# FE-VISUAL.05: mídia local sem autorização confirmada de redistribuição.
+/public/media/mktauto-robotic-city-original.png
+/public/media/mktauto-blue-neon-particles-web.mp4

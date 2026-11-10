@@ -101,9 +101,9 @@ não importa código do backend, não acessa SQLite e não duplica regras de neg
 direitos, Finance, estados, aprovações ou idempotência.
 
 O mockup MKTAuto Neon Marketing Cockpit foi consultado apenas como referência
-de composição e cor. Não foi copiado como interface ou asset. A imagem original,
-o vídeo de partículas e o dashboard operacional completo ficam para etapas
-posteriores, com verificação de licença e contratos.
+de composição e cor. Não foi copiado como interface ou asset. FE-VISUAL.05 usa
+dois assets isolados somente no ambiente local, conforme as restrições de
+licença documentadas abaixo. Integrações operacionais dependem dos contratos reais.
 
 ## Estado Git
 
@@ -198,3 +198,84 @@ A composição usa apenas CSS e ícones SVG locais, sem imagens, vídeos, canvas
 3D ou novas dependências. A regra existente de movimento reduzido permanece
 ativa; o dashboard não introduz animações. A composição cinematográfica do hero
 fica para FE-VISUAL.05; integrações e dados reais dependem de tópicos posteriores.
+
+## Hero cinematográfico local — FE-VISUAL.05
+
+`DashboardHero` preserva título, descrição, link e organização do cockpit.
+`HeroMedia` isola imagem decorativa, partículas, luz, máscaras e fallback CSS.
+A cidade e os braços robóticos se integram à superfície do hero; o mockup
+completo não é usado como fundo. No mobile, a imagem fica abaixo do texto e
+do link, com enquadramento que preserva os dois braços.
+
+O vídeo web usa H.264/yuv420p, 1280×720, 24 fps, duração de 13,33 s e não tem
+faixa de áudio. A camada tem baixa opacidade e `mix-blend-mode: screen`.
+`muted`, `loop` e `playsInline` acompanham preload `none`; a reprodução só é
+iniciada depois da carga da imagem, com movimento permitido e aba visível.
+Um controle acessível permite pausar/retomar as partículas. A preferência por
+movimento reduzido é acompanhada durante o uso: o vídeo não é montado nesse
+modo, mantendo a imagem estática. Ocultar a aba remove o vídeo e interrompe a
+reprodução; a escolha de pausa é preservada ao voltar.
+
+Erro ou bloqueio de autoplay remove somente o vídeo, mantendo a imagem. Se a
+imagem também faltar, o hero conserva sua composição CSS, sem ícone de imagem
+quebrada. Isso permite usar outros clones sem os arquivos locais. Navegação e
+texto permanecem disponíveis em todos esses casos. Nenhuma API de negócio é
+consultada; os únicos carregamentos adicionais são os arquivos estáticos locais.
+
+### Origem, integridade e limites de distribuição
+
+Materiais entregues pelo usuário em
+`D:\04-Projetos\23-MKTauto\00-materiais\prototipo\referencias`:
+
+| Arquivo de origem | Formato / dimensões | Tamanho | Uso |
+| --- | --- | ---: | --- |
+| `mktauto-robotic-city-original.png` | PNG RGB, 960×540 | 599.620 bytes | Cópia local |
+| `mktauto-blue-neon-particles.mp4` | H.264/yuv422p10le, 2560×1440, 29,97 fps, 13,35 s | 36.486.076 bytes | Referência; não copiado |
+| `mktauto-blue-neon-particles-web.mp4` | H.264/yuv420p, 1280×720, 24 fps, 13,33 s | 5.782.494 bytes | Cópia local otimizada |
+
+Os três arquivos passaram por inspeção de metadados e decodificação completa
+com FFmpeg já instalado. Não houve conversão ou alteração dos originais.
+As cópias locais têm o mesmo SHA-256 dos arquivos de origem:
+
+- Imagem: `f0983563d6011a2b65cea19f008863f126a4617218a94d7257049432bcdb95ab`.
+- Vídeo original: `c6a0fd63bfad0de50c5e7473f37c268c08ebe423283092fea4a35c2240a5e8f1`.
+- Vídeo web: `aafc2d08c2f065a185cea5199da054550a70250e8e09f5dbe3538bb34b14c42a`.
+
+**Os assets não possuem autorização confirmada para redistribuição no GitHub
+público.** A origem disponível é a entrega local do usuário. Autor, provedor,
+URL original, licença e texto de atribuição do vídeo e da imagem não foram
+fornecidos nem confirmados. Qualquer distribuição futura exige verificar esses
+direitos e registrar a atribuição exigida pelos respectivos titulares.
+
+Somente estas cópias locais são usadas e explicitamente ignoradas pelo Git:
+
+- `public/media/mktauto-robotic-city-original.png`
+- `public/media/mktauto-blue-neon-particles-web.mp4`
+
+Não adicionar esses binários ao staging, inclusive com `git add -f`.
+Um clone sem eles usa o fallback automaticamente. Para preparar um ambiente
+local autorizado, copiar os arquivos correspondentes para esses dois caminhos,
+sem sobrescrever os originais em materiais. As URLs respeitam `BASE_URL` do Vite.
+O build local do Vite copia `public/` para o `dist/` ignorado; esse build também
+contém os assets privados e não deve ser publicado enquanto os direitos de
+distribuição estiverem pendentes. Esta entrega não executa publicação.
+
+### Validação local
+
+- Testes focados de mídia, dashboard e navegação: 20 PASS; suíte completa: 49 PASS.
+- Build e lint: PASS, sem instalar dependências.
+- Navegador: imagem carregada, vídeo 1280×720 em reprodução silenciosa e
+  pausa/retomada por teclado. Console sem avisos ou erros com os assets presentes.
+- Inspeção em 1440×900, 1280×800, 768×1024 e 390×844: sem overflow horizontal.
+- Ausência real das cópias locais: fallback CSS e navegação conferidos no
+  navegador; arquivos restaurados e hashes reconferidos após a simulação.
+  Os erros de recurso ausente nessa simulação são esperados; não há exceção da aplicação.
+- Movimento reduzido inicial/dinâmico, aba oculta, erro de vídeo e autoplay
+  rejeitado são cobertos por testes com mocks. Não houve emulação da preferência
+  de movimento no navegador utilizado na inspeção.
+
+Diferenças em relação ao mockup: os braços e a cidade são uma imagem estática
+960×540, sem movimento de câmera, animação dos braços ou modelagem 3D. O vídeo
+adiciona partículas decorativas independentes. Máscaras preservam contraste do
+texto; no mobile o cenário fica abaixo dos controles. O resultado não é uma
+reprodução pixel-perfect do mockup nem demonstra uma operação real.

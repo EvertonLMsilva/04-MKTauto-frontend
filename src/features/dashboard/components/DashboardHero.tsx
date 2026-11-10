@@ -1,6 +1,7 @@
 import { useId } from 'react'
 import { Icon } from '../../../components/ui/Icon'
 import { NeonButton } from '../../../components/ui/NeonButton'
+import { HeroMedia } from './HeroMedia'
 
 export function DashboardHero() {
   const titleId = useId()
@@ -13,11 +14,7 @@ export function DashboardHero() {
         <NeonButton to="/base-visual">Explorar a base visual <Icon name="arrow" /></NeonButton>
         <span className="hero-caption">Estrutura visual · integração operacional pendente</span>
       </div>
-      <div className="hologram-space" aria-hidden="true">
-        <div className="hologram-grid" />
-        <div className="hologram-frame"><Icon name="layers" width="64" height="64" /><span>MKTAUTO</span></div>
-        <span className="hologram-caption">ESPAÇO HOLOGRÁFICO<br />COMPOSIÇÃO VISUAL EM PREPARAÇÃO</span>
-      </div>
+      <HeroMedia />
     </section>
   )
 }

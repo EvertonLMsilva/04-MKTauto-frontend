@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { DashboardPage } from './DashboardPage'
@@ -23,6 +23,16 @@ test('indicadores apresentam ausência de dados, sem zeros, percentuais ou resul
     expect(value.textContent).not.toMatch(/[0-9%]/)
   }
   expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+  expect(fetch).not.toHaveBeenCalled()
+})
+
+test('hero mantém título e navegação quando o asset local não existe', () => {
+  const { container } = render(<MemoryRouter><DashboardPage /></MemoryRouter>)
+  fireEvent.error(container.querySelector('.hero-media-image')!)
+  expect(screen.getByRole('heading', { name: /sua operação. uma nova dimensão/i })).toBeVisible()
+  expect(screen.getByRole('link', { name: 'Explorar a base visual' })).toHaveAttribute('href', '/base-visual')
+  expect(screen.getByText('Nenhum dado operacional carregado')).toBeVisible()
+  expect(container.querySelector('.hero-media')).toHaveClass('hero-media--static')
   expect(fetch).not.toHaveBeenCalled()
 })
 
