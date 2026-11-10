@@ -38,7 +38,7 @@ test('hero mantém título e navegação quando o asset local não existe', () =
   expect(fetch).not.toHaveBeenCalled()
 })
 
-test('áreas operacionais explicam a integração pendente sem simular etapas ou consultas', () => {
+test('áreas operacionais explicam a ausência de consultas sem simular etapas ou dados', () => {
   render(<MemoryRouter><DashboardPage /></MemoryRouter>)
   const panels = [
     ['Pipeline de campanhas', 'Estados ainda não consultados.'],
@@ -96,6 +96,7 @@ function respondMetrics(response: () => Response | Promise<Response>, executions
 
 test('renders measured zeros, separate fake/live and the backend QC rate',async()=>{
   configure(); respondMetrics(() => new Response(JSON.stringify(summary())))
+  const user=userEvent.setup()
   render(<MemoryRouter><DashboardPage /></MemoryRouter>)
   await screen.findByRole('heading',{name:'Resumo recebido'})
   expect(within(row('Execuções em processamento')).getByText('0')).toBeVisible()
@@ -104,7 +105,10 @@ test('renders measured zeros, separate fake/live and the backend QC rate',async(
   expect(within(row('Publicações simuladas · FAKE')).getByText('2')).toBeVisible()
   expect(within(row('Publicações reais · LIVE')).getByText('Indisponível')).toBeVisible()
   expect(within(row('Aprovação QC técnico V1')).getByText('50%')).toBeVisible()
+  expect(screen.getByText(/QC: quality-control-report/)).not.toBeVisible()
+  await user.click(screen.getByText('Escopo e critérios dos indicadores'))
   expect(screen.getByText(/QC: quality-control-report/)).toBeVisible()
+  expect(screen.getByText(/Total combinado de publicações: indisponível/)).toBeVisible()
   expect(screen.getByRole('heading',{name:/sua operação. uma nova dimensão/i})).toBeVisible()
   expect(vi.mocked(fetch).mock.calls.every(([,options])=>options?.method==='GET')).toBe(true)
 })
@@ -124,6 +128,18 @@ test.each([401,403])('HTTP %i requests the existing session and performs no logi
   expect(screen.getByRole('link',{name:'Abrir console de autenticação existente'})).toHaveAttribute('href','/operations')
   expect(fetch).toHaveBeenCalledTimes(2)
 })
+test('expired-session guidance precedes the hero and keeps its existing console destination', async () => {
+  configure(); respondMetrics(() => new Response('{}', { status: 401 }))
+  const { container } = render(<MemoryRouter><DashboardPage /></MemoryRouter>)
+  await screen.findByRole('heading', { name: 'Sessão não autorizada' })
+  const integration = screen.getByRole('region', { name: 'Estado de integração' })
+  const hero = container.querySelector('.cockpit-hero')!
+  expect(integration.compareDocumentPosition(hero) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(within(integration).getByRole('alert')).toHaveTextContent('Sessão')
+  expect(within(integration).getByRole('link')).toHaveAttribute('href', '/operations')
+  expect(fetch).toHaveBeenCalledTimes(2)
+})
+
 test('loading disables retry; a subsequent retry replaces a network error',async()=>{
   configure();respondMetrics(() => Promise.reject(new Error('offline')))
   const user=userEvent.setup()

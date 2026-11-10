@@ -24,3 +24,13 @@ test('null operation makes neither mode nor completion claims', () => {
   expect(screen.queryByText('FAKE · simulação')).not.toBeInTheDocument()
   expect(screen.queryByText('LIVE · operação real')).not.toBeInTheDocument()
 })
+
+test('keeps full execution context during a failed query without displaying a fabricated empty history', () => {
+  const executionId = `execution_${'identity_'.repeat(20)}`
+  render(<RecentPublicationsPanel executionId={executionId} state={{ ...state, status: 'error', data: null, message: 'Consulta indisponível.' }} />)
+  expect(screen.getByLabelText('Vínculo das publicações')).toHaveTextContent(executionId)
+  expect(screen.getByRole('alert')).toHaveTextContent('Consulta indisponível.')
+  expect(screen.queryByRole('list')).not.toBeInTheDocument()
+  expect(screen.queryByText(/conclusão simulada|publicação confirmada/)).not.toBeInTheDocument()
+  expect(fetch).not.toHaveBeenCalled()
+})

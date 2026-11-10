@@ -1,12 +1,11 @@
 import { NavLink } from 'react-router'
 import { Icon } from '../ui/Icon'
 
-const futureModules = [
+const dashboardAreas = [
   { icon: 'campaign', label: 'Campanhas' },
   { icon: 'layers', label: 'Pipeline' },
   { icon: 'media', label: 'Mídia' },
   { icon: 'publish', label: 'Publicação' },
-  { icon: 'chart', label: 'Relatórios' },
 ] as const
 
 export function AppSidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }) {
@@ -22,14 +21,15 @@ export function AppSidebar({ open, onNavigate }: { open: boolean; onNavigate: ()
         <NavLink to="/" end onClick={onNavigate}><Icon name="dashboard" /><span>Dashboard</span></NavLink>
         <NavLink to="/base-visual" onClick={onNavigate}><Icon name="layers" /><span>Base visual</span></NavLink>
       </nav>
-      <section className="sidebar-future" aria-labelledby="future-modules-title">
-        <h2 id="future-modules-title" className="nav-caption">MÓDULOS FUTUROS</h2>
-        <p>Indisponíveis nesta etapa</p>
-        <ul>{futureModules.map(({ icon, label }) => (
-          <li key={label}><Icon name={icon} /><span>{label}</span><Icon name="lock" width="13" height="13" /><span className="sr-only"> · indisponível</span></li>
+      <section className="sidebar-areas" aria-labelledby="dashboard-areas-title">
+        <h2 id="dashboard-areas-title" className="nav-caption">NO DASHBOARD</h2>
+        <p>Áreas de leitura operacional</p>
+        <ul>{dashboardAreas.map(({ icon, label }) => (
+          <li key={label}><Icon name={icon} /><span>{label}</span></li>
         ))}</ul>
+        <div className="sidebar-unavailable"><Icon name="chart" /><span>Relatórios <span>Indisponível</span></span><Icon name="lock" width="13" height="13" /></div>
       </section>
-      <div className="sidebar-note"><Icon name="plug" /><p>Integração pendente<span>Nenhuma conexão verificada.</span></p></div>
+      <div className="sidebar-note"><Icon name="plug" /><p>Consultas operacionais<span>Disponibilidade e sessão informadas no Dashboard.</span></p></div>
       <footer className="sidebar-footer"><span className="outline-dot" /> MKTAUTO <span>NEON / 004</span></footer>
     </aside>
   )

@@ -31,8 +31,8 @@ export function HeroMedia({
   const [playing, setPlaying] = useState(false)
   const [pausedByUser, setPausedByUser] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const canRenderVideo = imageReady && !imageFailed && !videoFailed && !reducedMotion && visible
-  const shouldPlay = canRenderVideo && !pausedByUser
+  const canRenderVideo = imageReady && !imageFailed && !videoFailed && !reducedMotion
+  const shouldPlay = canRenderVideo && visible && !pausedByUser
 
   useEffect(() => {
     const video = videoRef.current

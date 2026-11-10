@@ -35,3 +35,17 @@ test('verified empty and completed-only samples are distinct from unavailable', 
   expect(screen.getByText(/Nenhum processamento nesses três estados/)).toBeVisible()
   expect(screen.getByRole('combobox')).toBeEnabled()
 })
+
+test('selected execution exposes its complete identity, run and state outside the native select', () => {
+  const execution = { ...executions[3]!, execution_id: `execution_${'long_identity_'.repeat(12)}`, run_id: `run_${'pipeline_'.repeat(18)}` }
+  const { rerender } = render(<ProcessingPanel executions={[execution]} status="success" message="Recebido" selectedId={execution.execution_id} onSelect={vi.fn()} />)
+  const context = screen.getByLabelText('Execução selecionada')
+  expect(within(context).getByText(execution.execution_id, { exact: true })).toBeVisible()
+  expect(within(context).getByText(execution.run_id, { exact: true })).toBeVisible()
+  expect(within(context).getByText('Concluída')).toBeVisible()
+  expect(screen.getByRole('combobox')).toHaveAccessibleDescription(/Seleção local; inclui execuções encerradas/)
+  expect(screen.getByRole('option', { name: `Concluída · ${execution.execution_id}` })).toBeInTheDocument()
+  rerender(<ProcessingPanel executions={[execution]} status="success" message="Recebido" selectedId="" onSelect={vi.fn()} />)
+  expect(screen.queryByLabelText('Execução selecionada')).not.toBeInTheDocument()
+  expect(fetch).not.toHaveBeenCalled()
+})

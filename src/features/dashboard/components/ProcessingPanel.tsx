@@ -3,6 +3,7 @@ import { NeonPanel } from '../../../components/ui/NeonPanel'
 import { NeonBadge } from '../../../components/ui/NeonBadge'
 import { StatusMessage } from '../../../components/ui/StatusMessage'
 import type { CampaignExecution } from '../contracts/campaignExecutions'
+import { executionLabels } from '../contracts/campaignExecutions'
 import type { CampaignExecutionsStatus } from '../hooks/useCampaignExecutions'
 
 const states = { RUNNING: 'Processando', WAITING_INPUT: 'Aguardando insumo', WAITING_RECONCILIATION: 'Aguardando reconciliação' } as const
@@ -12,8 +13,24 @@ export function ProcessingPanel({ executions, status, message, selectedId, onSel
 }) {
   const selectId = useId()
   const processing = executions?.filter(row => Object.hasOwn(states, row.status))
+  const selected = executions?.find(row => row.execution_id === selectedId)
   return <NeonPanel title="Acompanhamento de processamentos" eyebrow="RECORTE DA AMOSTRA" className="processing-panel">
     <p className="panel-description">Estados atuais das até 100 execuções da fila. Não representa todos os processamentos do banco. Sem estimativa de progresso ou duração.</p>
+    <div className="execution-selection">
+      <div className="execution-filters"><div>
+        <label htmlFor={selectId}>Execução para consultar mídias e publicações</label>
+        <select id={selectId} aria-describedby={`${selectId}-help`} value={selectedId} onChange={event => onSelect(event.target.value)} disabled={!executions?.length}>
+          <option value="">Selecione uma execução da amostra</option>
+          {executions?.map(item => <option key={item.execution_id} value={item.execution_id}>{executionLabels[item.status]} · {item.execution_id}</option>)}
+        </select>
+      </div></div>
+      <p id={`${selectId}-help`} className="execution-note">Seleção local; inclui execuções encerradas. Atualize a fila para renovar a amostra. Cada painel abaixo possui atualização manual própria.</p>
+      {selected && <dl className="execution-context" aria-label="Execução selecionada">
+        <div><dt>Execução</dt><dd><code>{selected.execution_id}</code></dd></div>
+        <div><dt>Pipeline run</dt><dd><code>{selected.run_id}</code></dd></div>
+        <div><dt>Estado atual</dt><dd>{executionLabels[selected.status]}</dd></div>
+      </dl>}
+    </div>
     <div aria-busy={status === 'loading'}>
       {executions === null && <StatusMessage tone={['error', 'unauthorized', 'incompatible'].includes(status) ? 'error' : status === 'loading' ? 'loading' : 'info'}>{message}</StatusMessage>}
       {processing?.length === 0 && <p className="execution-note">Nenhum processamento nesses três estados na amostra recebida.</p>}
@@ -26,13 +43,5 @@ export function ProcessingPanel({ executions, status, message, selectedId, onSel
         </article></li>)}
       </ul>}
     </div>
-    <div className="execution-filters"><div>
-      <label htmlFor={selectId}>Execução para consultar mídias e publicações</label>
-      <select id={selectId} value={selectedId} onChange={event => onSelect(event.target.value)} disabled={!executions?.length}>
-        <option value="">Selecione uma execução da amostra</option>
-        {executions?.map(item => <option key={item.execution_id} value={item.execution_id}>{item.execution_id}</option>)}
-      </select>
-    </div></div>
-    <p className="execution-note">Seleção local; inclui execuções encerradas. Atualize a fila para renovar a amostra. Cada painel abaixo possui atualização manual própria.</p>
   </NeonPanel>
 }

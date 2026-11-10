@@ -39,8 +39,22 @@ export function DashboardPage() {
     <div className="page-content cockpit-dashboard">
       <div className="page-heading">
         <div><p className="eyebrow">SEU CENTRO DE OPERAÇÃO</p><h1>Dashboard</h1></div>
-        <NeonBadge tone={metrics.status === 'error' ? 'error' : data ? 'success' : 'info'}>{data ? 'Resumo histórico' : 'Aguardando dados'}</NeonBadge>
+        <NeonBadge tone={metrics.status === 'error' ? 'error' : data ? 'success' : 'info'}>{metrics.unauthorized ? 'Sessão não autorizada' : metrics.status === 'error' ? 'Resumo indisponível' : metrics.status === 'loading' ? 'Consultando resumo' : data ? 'Resumo histórico' : 'Aguardando dados'}</NeonBadge>
       </div>
+      <NeonPanel title="Estado de integração" className="integration-panel">
+        <div className="integration-content">
+          <div>
+            <h3>{title}</h3>
+            <p className="panel-description">Indicadores históricos · atualização manual.</p>
+            {metrics.unauthorized && <a className="dashboard-session-link" href="/operations" target="_blank" rel="noreferrer">Abrir console de autenticação existente</a>}
+          </div>
+          <div className="dashboard-read-state" aria-busy={metrics.status === 'loading'}>
+            <StatusMessage tone={metrics.status === 'error' ? 'error' : metrics.status === 'loading' ? 'loading' : data ? 'success' : 'info'}>{metrics.message}</StatusMessage>
+            {!data && metrics.status !== 'loading' && <p className="panel-description">Nenhum dado operacional carregado</p>}
+            {metrics.access === 'ready' && <NeonButton variant="secondary" loading={metrics.status === 'loading'} onClick={metrics.retry}>{data ? 'Atualizar resumo' : 'Tentar novamente'}</NeonButton>}
+          </div>
+        </div>
+      </NeonPanel>
       <div className="cockpit-overview">
         <DashboardHero />
         <NeonPanel title="Indicadores operacionais" className="metrics-panel">
@@ -52,8 +66,11 @@ export function DashboardPage() {
             {metric('socialPublicationsFake', 'Publicações simuladas · FAKE', 'publish', 'Simulações; não representam publicações reais.')}
             {metric('qcApprovalRate', 'Aprovação QC técnico V1', 'chart', data && data.qcApproved !== null && data.qcEvaluated !== null ? `PASS: ${data.qcApproved} · Avaliadas: ${data.qcEvaluated}. Não inclui aprovação humana.` : 'Não inclui aprovação humana.', true)}
           </dl>
-          <p className="metrics-note">Total combinado de publicações: indisponível. {data ? reasonLabels[data.availability.completedPublications.reason!] : 'O contrato mantém fake e LIVE separados.'}</p>
-          {data && <p className="metrics-note">Todo o histórico · QC: {data.scope.qcFamily}<br />Recebido: <time dateTime={data.generatedAt}>{new Date(data.generatedAt).toLocaleString('pt-BR')}</time>. A consulta não autoriza ações operacionais.</p>}
+          <details className="metrics-audit">
+            <summary>Escopo e critérios dos indicadores</summary>
+            <p className="metrics-note">Total combinado de publicações: indisponível. {data ? reasonLabels[data.availability.completedPublications.reason!] : 'O contrato mantém fake e LIVE separados.'}</p>
+            {data && <p className="metrics-note">Todo o histórico · QC: {data.scope.qcFamily}<br />Recebido: <time dateTime={data.generatedAt}>{new Date(data.generatedAt).toLocaleString('pt-BR')}</time>. A consulta não autoriza ações operacionais.</p>}
+          </details>
         </NeonPanel>
       </div>
       <CampaignPipeline executions={executions.data} />
@@ -63,20 +80,6 @@ export function DashboardPage() {
         <MediaPanel executionId={selected?.execution_id ?? null} runId={selected?.run_id ?? null} state={media} />
         <RecentPublicationsPanel executionId={selected?.execution_id ?? null} state={publications} />
       </div>
-      <NeonPanel title="Estado de integração" className="integration-panel">
-        <div className="integration-content">
-          <div>
-            <h3>{title}</h3>
-            <p className="panel-description">Leitura do resumo operacional. Sem polling e sem operações de escrita.</p>
-            {metrics.unauthorized && <a className="dashboard-session-link" href="/operations" target="_blank" rel="noreferrer">Abrir console de autenticação existente</a>}
-          </div>
-          <div className="dashboard-read-state" aria-busy={metrics.status === 'loading'}>
-            <StatusMessage tone={metrics.status === 'error' ? 'error' : metrics.status === 'loading' ? 'loading' : data ? 'success' : 'info'}>{metrics.message}</StatusMessage>
-            {!data && metrics.status !== 'loading' && <p className="panel-description">Nenhum dado operacional carregado</p>}
-            {metrics.access === 'ready' && <NeonButton variant="secondary" loading={metrics.status === 'loading'} onClick={metrics.retry}>{data ? 'Atualizar resumo' : 'Tentar novamente'}</NeonButton>}
-          </div>
-        </div>
-      </NeonPanel>
     </div>
   )
 }
