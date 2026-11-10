@@ -2,7 +2,6 @@ import { NavLink } from 'react-router'
 import { Icon } from '../ui/Icon'
 
 const dashboardAreas = [
-  { icon: 'campaign', label: 'Campanhas' },
   { icon: 'layers', label: 'Pipeline' },
   { icon: 'media', label: 'Mídia' },
   { icon: 'publish', label: 'Publicação' },
@@ -19,6 +18,7 @@ export function AppSidebar({ open, onNavigate }: { open: boolean; onNavigate: ()
       <nav aria-label="Navegação principal">
         <span className="nav-caption">WORKSPACE</span>
         <NavLink to="/" end onClick={onNavigate}><Icon name="dashboard" /><span>Dashboard</span></NavLink>
+        <NavLink to="/campanhas" onClick={onNavigate}><Icon name="campaign" /><span>Campanhas</span></NavLink>
         <NavLink to="/base-visual" onClick={onNavigate}><Icon name="layers" /><span>Base visual</span></NavLink>
       </nav>
       <section className="sidebar-areas" aria-labelledby="dashboard-areas-title">
