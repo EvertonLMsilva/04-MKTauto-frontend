@@ -42,7 +42,7 @@ test('áreas operacionais explicam a ausência de consultas sem simular etapas o
   render(<MemoryRouter><DashboardPage /></MemoryRouter>)
   const panels = [
     ['Pipeline de campanhas', 'Estados ainda não consultados.'],
-    ['Fila e execuções', 'Nenhuma amostra de execuções disponível para exibição.'],
+    ['Fila e execuções', 'Nenhuma página da fila disponível para exibição.'],
     ['Acompanhamento de processamentos', 'Configure a origem local da API para consultar as execuções.'],
     ['Mídias vinculadas', 'Consulta indisponível. É necessária uma API na mesma origem HTTP local com sessão QC.'],
     ['Publicações da execução', 'Consulta indisponível. É necessária uma API na mesma origem HTTP local com sessão QC.'],
@@ -89,9 +89,11 @@ function summary() {
 
 function configure() { config.status='configured'; config.baseUrl=window.location.origin }
 function row(label:string) { return screen.getByText(label).closest('.metric-placeholder')! as HTMLElement }
-function respondMetrics(response: () => Response | Promise<Response>, executions: unknown[] = []) {
+const emptyQueue = { total: 0, limit: 25, offset: 0, items: [] }
+function queuePage(status = 'SUCCEEDED', offset = 0) { return { total: 26, limit: 25, offset, items: [{ projectId: null, campaignId: 'campaign_queue', campaignRevision: 1, occurrenceDate: '2026-11-10', executionId: `queue_${offset}`, runId: null, campaignStatus: status, blockingCode: null, publicationComplete: false, latestCampaignEvent: null, destinations: [] }] } }
+function respondMetrics(response: () => Response | Promise<Response>, executions: unknown[] = [], queue: unknown = emptyQueue) {
   vi.mocked(fetch).mockImplementation(input => String(input).endsWith('/operations/executions')
-    ? Promise.resolve(new Response(JSON.stringify(executions))) : Promise.resolve().then(response))
+    ? Promise.resolve(new Response(JSON.stringify(executions))) : String(input).includes('/publishing/executions/queue?') ? Promise.resolve(new Response(JSON.stringify(queue))) : Promise.resolve().then(response))
 }
 
 test('renders measured zeros, separate fake/live and the backend QC rate',async()=>{
@@ -126,7 +128,7 @@ test.each([401,403])('HTTP %i requests the existing session and performs no logi
   render(<MemoryRouter><DashboardPage /></MemoryRouter>)
   await screen.findByRole('heading',{name:'Sessão não autorizada'})
   expect(screen.getByRole('link',{name:'Abrir console de autenticação existente'})).toHaveAttribute('href','/operations')
-  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(fetch).toHaveBeenCalledTimes(3)
 })
 test('expired-session guidance precedes the hero and keeps its existing console destination', async () => {
   configure(); respondMetrics(() => new Response('{}', { status: 401 }))
@@ -137,7 +139,7 @@ test('expired-session guidance precedes the hero and keeps its existing console 
   expect(integration.compareDocumentPosition(hero) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(within(integration).getByRole('alert')).toHaveTextContent('Sessão')
   expect(within(integration).getByRole('link')).toHaveAttribute('href', '/operations')
-  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(fetch).toHaveBeenCalledTimes(3)
 })
 
 test('loading disables retry; a subsequent retry replaces a network error',async()=>{
@@ -154,31 +156,31 @@ test('loading disables retry; a subsequent retry replaces a network error',async
   expect(screen.getByRole('button',{name:'Atualizar resumo'})).toBeEnabled()
 })
 
-test('execuções e filtros da amostra preservam indicadores globais, hero e GETs independentes', async () => {
+test('fila paginada preserva indicadores, processamentos e hero com GETs independentes', async () => {
   configure()
   const value = { ...summary(), runningExecutions: 157 }
   respondMetrics(() => new Response(JSON.stringify(value)), [
     { execution_id: 'execution_running', campaign_id: 'campaign_001', campaign_revision: 1, run_id: 'run_001', version: 1, status: 'RUNNING' },
     { execution_id: 'execution_scheduled', campaign_id: 'campaign_001', campaign_revision: 1, run_id: 'run_002', version: 1, status: 'SCHEDULED' },
-  ])
+  ], queuePage())
   const user = userEvent.setup()
   render(<MemoryRouter><DashboardPage /></MemoryRouter>)
-  await screen.findByRole('article', { name: 'Execução execution_running' })
+  await screen.findByRole('article', { name: 'Execução queue_0' })
   expect(within(row('Execuções em processamento')).getByText('157')).toBeVisible()
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Filtrar estados da amostra' }), 'SCHEDULED')
-  expect(screen.queryByRole('article', { name: 'Execução execution_running' })).not.toBeInTheDocument()
-  expect(screen.getByRole('article', { name: 'Execução execution_scheduled' })).toBeVisible()
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Filtrar estados desta página' }), 'SCHEDULED')
+  expect(screen.queryByRole('article', { name: 'Execução queue_0' })).not.toBeInTheDocument()
+  expect(screen.getByRole('article', { name: 'Processamento execution_running' })).toBeVisible()
   expect(screen.getByRole('heading', { name: /sua operação. uma nova dimensão/i })).toBeVisible()
-  expect(fetch).toHaveBeenCalledTimes(2)
-  await user.click(screen.getByRole('button', { name: 'Atualizar execuções' }))
-  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3))
+  expect(fetch).toHaveBeenCalledTimes(3)
+  await user.click(screen.getByRole('button', { name: 'Atualizar fila' }))
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(4))
   expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/dashboard/summary'))).toHaveLength(1)
   expect(vi.mocked(fetch).mock.calls.every(([, options]) => options?.method === 'GET')).toBe(true)
 })
 
-test('uma falha de sessão nas execuções não invalida os indicadores recebidos', async () => {
+test('uma falha de sessão na fila não invalida os indicadores recebidos', async () => {
   configure()
-  vi.mocked(fetch).mockImplementation(input => Promise.resolve(String(input).endsWith('/operations/executions') ? new Response('{}', { status: 403 }) : new Response(JSON.stringify(summary()))))
+  vi.mocked(fetch).mockImplementation(input => Promise.resolve(String(input).includes('/publishing/executions/queue?') ? new Response('{}', { status: 403 }) : new Response(JSON.stringify(String(input).endsWith('/operations/executions') ? [] : summary()))))
   render(<MemoryRouter><DashboardPage /></MemoryRouter>)
   await screen.findByRole('heading', { name: 'Resumo recebido' })
   const queue = screen.getByRole('region', { name: 'Fila e execuções' })
@@ -194,15 +196,15 @@ test('seleção consulta apenas o run e os destinos correspondentes sem duplicar
   const urls: string[] = []
   vi.mocked(fetch).mockImplementation(input => {
     const url = String(input); urls.push(url)
-    return Promise.resolve(new Response(JSON.stringify(url.endsWith('/operations/executions') ? executions : url.endsWith('/dashboard/summary') ? { ...summary(), runningExecutions: 157 } : [])))
+    return Promise.resolve(new Response(JSON.stringify(url.endsWith('/operations/executions') ? executions : url.endsWith('/dashboard/summary') ? { ...summary(), runningExecutions: 157 } : url.includes('/publishing/executions/queue?') ? emptyQueue : [])))
   })
   const user = userEvent.setup()
   render(<MemoryRouter><DashboardPage /></MemoryRouter>)
   await screen.findByRole('article', { name: 'Processamento execution_0' })
-  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(fetch).toHaveBeenCalledTimes(3)
   const select = screen.getByRole('combobox', { name: 'Execução para consultar mídias e publicações' })
   await user.selectOptions(select, 'execution_1')
-  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(4))
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(5))
   expect(urls).toContain(`${window.location.origin}/media/assets?pipelineRunId=run_1`)
   expect(urls).toContain(`${window.location.origin}/publishing/executions/execution_1/destinations`)
   await waitFor(() => expect(within(screen.getByRole('region', { name: 'Mídias vinculadas' })).getByText('Nenhum registro retornado neste escopo.')).toBeVisible())
@@ -210,6 +212,25 @@ test('seleção consulta apenas o run e os destinos correspondentes sem duplicar
   expect(urls.filter(url => url.endsWith('/operations/executions'))).toHaveLength(1)
   await user.selectOptions(select, '')
   expect(within(screen.getByRole('region', { name: 'Mídias vinculadas' })).getByText('Selecione uma execução para consultar mídias.')).toBeVisible()
-  expect(fetch).toHaveBeenCalledTimes(4)
+  expect(fetch).toHaveBeenCalledTimes(5)
+  expect(vi.mocked(fetch).mock.calls.every(([, options]) => options?.method === 'GET')).toBe(true)
+})
+
+
+test('paginação da fila consulta somente a página solicitada sem recarregar os demais painéis', async () => {
+  configure()
+  vi.mocked(fetch).mockImplementation(input => {
+    const url = String(input)
+    return Promise.resolve(new Response(JSON.stringify(url.includes('/publishing/executions/queue?') ? queuePage('SUCCEEDED', new URL(url).searchParams.get('offset') === '25' ? 25 : 0) : url.endsWith('/operations/executions') ? [] : summary())))
+  })
+  const user = userEvent.setup()
+  render(<MemoryRouter><DashboardPage /></MemoryRouter>)
+  await screen.findByRole('article', { name: 'Execução queue_0' })
+  await user.click(screen.getByRole('button', { name: 'Próxima página' }))
+  await screen.findByRole('article', { name: 'Execução queue_25' })
+  expect(screen.queryByRole('article', { name: 'Execução queue_0' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Próxima página' })).toBeDisabled()
+  expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/operations/dashboard/summary'))).toHaveLength(1)
+  expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/operations/executions'))).toHaveLength(1)
   expect(vi.mocked(fetch).mock.calls.every(([, options]) => options?.method === 'GET')).toBe(true)
 })

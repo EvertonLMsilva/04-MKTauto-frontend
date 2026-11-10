@@ -71,7 +71,7 @@ describe('real local HTTP routing against an isolated test server, never the bac
     await vite?.close()
     await new Promise<void>((resolve, reject) => upstream.close(error => error ? reject(error) : resolve()))
   })
-  test.each(['/operations', '/operations/session', '/operations/executions', '/operations/dashboard/summary', '/media/assets?pipelineRunId=run%3A001', '/publishing/executions/execution%3A001/destinations', '/affiliate/campaigns/campaign_test/revisions/1'])('forwards the exact path and query: %s', async path => {
+  test.each(['/operations', '/operations/session', '/operations/executions', '/operations/dashboard/summary', '/media/assets?pipelineRunId=run%3A001', '/publishing/executions/execution%3A001/destinations', '/publishing/executions/queue?limit=25&offset=25', '/affiliate/campaigns/campaign_test/revisions/1'])('forwards the exact path and query: %s', async path => {
     const before = received.length
     const response = await get(path, 'GET', { Origin: origin, Cookie: 'test-only=opaque-marker' })
     expect(response.status).toBe(200)
@@ -101,17 +101,17 @@ describe('real local HTTP routing against an isolated test server, never the bac
     const patterns = Object.keys(configuration('http://127.0.0.1:3123').server!.proxy!)
     expect(patterns.some(pattern => new RegExp(pattern).test(path))).toBe(false)
   })
-  test.each(['/media/assets/asset_001', '/media/assets-extra', '/media/compositions', '/publishing/executions/execution_001/facebook-reels', '/publishing/executions/execution_001/destinations/extra', '/publishing/manual-publications', '/operations-extra', '/affiliate/campaigns', '/affiliate/campaigns/campaign_test/revisions/1/extra', '/affiliate/campaigns/campaign_test/revisions/01', '/affiliate/products/product_test/revisions/1', '/content-operations/campaign-executions/local'])('does not proxy paths outside the allowed namespaces: %s', async path => {
+  test.each(['/media/assets/asset_001', '/media/assets-extra', '/media/compositions', '/publishing/executions/execution_001/facebook-reels', '/publishing/executions/execution_001/destinations/extra', '/publishing/manual-publications', '/publishing/executions/queue/extra', '/publishing/executions/queue-extra', '/operations-extra', '/affiliate/campaigns', '/affiliate/campaigns/campaign_test/revisions/1/extra', '/affiliate/campaigns/campaign_test/revisions/01', '/affiliate/products/product_test/revisions/1', '/content-operations/campaign-executions/local'])('does not proxy paths outside the allowed namespaces: %s', async path => {
     const before = received.length
     const response = await get(path)
     expect(received).toHaveLength(before)
     expect(response.body).not.toContain('"testOnly"')
   })
-  test.each(['/media/assets?pipelineRunId=run_001', '/publishing/executions/execution_001/destinations', '/affiliate/campaigns/campaign_test/revisions/1'].flatMap(path => ['POST', 'PATCH', 'DELETE', 'HEAD'].map(method => ({ path, method }))))('blocks $method for the read endpoint $path', async ({ path, method }) => {
+  test.each(['/media/assets?pipelineRunId=run_001', '/publishing/executions/execution_001/destinations', '/publishing/executions/queue?limit=25&offset=0', '/affiliate/campaigns/campaign_test/revisions/1'].flatMap(path => ['POST', 'PATCH', 'DELETE', 'HEAD'].map(method => ({ path, method }))))('blocks $method for the read endpoint $path', async ({ path, method }) => {
     const before = received.length
     expect((await get(path, method)).status).toBe(404)
     expect(received).toHaveLength(before)
-    const options = configuration('http://127.0.0.1:3123').server!.proxy!
-    expect(Object.values(options).filter(value => (value as ProxyOptions).bypass)).toHaveLength(2)
+    const options = vite.config.server.proxy!
+    expect((options['^/publishing/executions/queue(?:\\?|$)'] as ProxyOptions).bypass).toBeTypeOf('function')
   })
 })

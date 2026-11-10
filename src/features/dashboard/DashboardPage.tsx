@@ -16,11 +16,13 @@ import { MediaPanel } from './components/MediaPanel'
 import { RecentPublicationsPanel } from './components/RecentPublicationsPanel'
 import { useProcessingMedia } from './hooks/useProcessingMedia'
 import { useExecutionPublications } from './hooks/useExecutionPublications'
+import { useOperationalQueue } from './hooks/useOperationalQueue'
 
 export function DashboardPage() {
   useDocumentTitle('Dashboard')
   const metrics = useDashboardMetrics()
   const executions = useCampaignExecutions()
+  const queue = useOperationalQueue()
   const [selectedId, setSelectedId] = useState('')
   const selected = executions.data?.find(item => item.execution_id === selectedId) ?? null
   const media = useProcessingMedia(selected?.run_id ?? null)
@@ -74,7 +76,7 @@ export function DashboardPage() {
         </NeonPanel>
       </div>
       <CampaignPipeline executions={executions.data} />
-      <CampaignQueue executions={executions.data} status={executions.status} message={executions.message} canRefresh={executions.access === 'ready'} onRefresh={executions.retry} />
+      <CampaignQueue page={queue.data} offset={queue.offset} status={queue.status} message={queue.message} canRefresh={queue.access === 'ready'} onRefresh={queue.retry} onPrevious={queue.previous} onNext={queue.next} />
       <ProcessingPanel executions={executions.data} status={executions.status} message={executions.message} selectedId={selected?.execution_id ?? ''} onSelect={setSelectedId} />
       <div className="operational-grid monitoring-grid">
         <MediaPanel executionId={selected?.execution_id ?? null} runId={selected?.run_id ?? null} state={media} />
