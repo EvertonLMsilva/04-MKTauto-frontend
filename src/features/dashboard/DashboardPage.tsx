@@ -8,10 +8,14 @@ import { OperationalEmptyState } from './components/OperationalEmptyState'
 import { NeonButton } from '../../components/ui/NeonButton'
 import { useDashboardMetrics } from './hooks/useDashboardMetrics'
 import { reasonLabels, type MetricKey } from './contracts/dashboardMetrics'
+import { useCampaignExecutions } from './hooks/useCampaignExecutions'
+import { CampaignPipeline } from './components/CampaignPipeline'
+import { CampaignQueue } from './components/CampaignQueue'
 
 export function DashboardPage() {
   useDocumentTitle('Dashboard')
   const metrics = useDashboardMetrics()
+  const executions = useCampaignExecutions()
   const { data } = metrics
   const detail = (key: MetricKey, description: string) => {
     const reason = data?.availability[key].reason
@@ -43,17 +47,9 @@ export function DashboardPage() {
           {data && <p className="metrics-note">Todo o histórico · QC: {data.scope.qcFamily}<br />Recebido: <time dateTime={data.generatedAt}>{new Date(data.generatedAt).toLocaleString('pt-BR')}</time>. A consulta não autoriza ações operacionais.</p>}
         </NeonPanel>
       </div>
-      <NeonPanel title="Pipeline de campanhas" eyebrow="VISÃO DO FLUXO" className="pipeline-panel">
-        <OperationalEmptyState icon="layers" title="Pipeline aguardando integração">
-          Etapas e estados serão exibidos conforme os contratos reais. Nenhum fluxo carregado.
-        </OperationalEmptyState>
-      </NeonPanel>
-      <div className="operational-grid">
-        <NeonPanel title="Fila de processamento" eyebrow="CAMPANHAS">
-          <OperationalEmptyState icon="queue" title="Fila ainda não consultada">
-            A integração permitirá consultar as campanhas na fila.
-          </OperationalEmptyState>
-        </NeonPanel>
+      <CampaignPipeline executions={executions.data} />
+      <CampaignQueue executions={executions.data} status={executions.status} message={executions.message} canRefresh={executions.access === 'ready'} onRefresh={executions.retry} />
+      <div className="operational-grid operational-grid--reserved">
         <NeonPanel title="Processamentos em andamento" eyebrow="EXECUÇÕES">
           <OperationalEmptyState icon="processor" title="Processamentos indisponíveis">
             Aguardando integração para acompanhar execuções reais.

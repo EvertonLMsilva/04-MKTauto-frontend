@@ -351,3 +351,78 @@ provisionar banco ou alterar regras QC para contornar erros.
 Hero, vídeo, rotas e Design System foram preservados. Assets continuam ignorados,
 sem autorização de redistribuição confirmada. O build local copia mídias para
 `dist/`, que permanece ignorado: não publicar esse diretório nem executar deploy.
+
+## Pipeline e execuções operacionais — FE-VISUAL.07
+
+O dashboard também lê `GET /operations/executions`, protegido pelo `LocalQcGuard`
+existente. A cadeia auditada no backend é `OperationsController.list` →
+`OperationsService.list` → `CampaignAdministration.list` →
+`CampaignRepository.listRecent`. A resposta é um array JSON sem envelope de
+paginação, limitado a **100 registros**, com ordenação
+`updated_at DESC, execution_id`. O controller não recebe filtros nem cursor.
+Uma amostra vazia confirma somente que essa consulta não retornou registros.
+Nenhuma contagem da listagem é apresentada como total global.
+
+O contrato frontend valida `unknown`, rejeita lista acima do limite, identificadores
+duplicados, estados desconhecidos, versões/revisões inválidas e datas malformadas.
+Projeta somente `execution_id`, `campaign_id`, `campaign_revision`, `run_id`,
+`status`, `version`, `production_date`, `scheduled_at`, `created_at`, `updated_at`
+e `finalization.pending.code/message`. Datas e pendências ausentes permanecem
+`null`. Nome, prioridade, proprietário, duração e progresso não são fornecidos.
+Claims, tokens, previews, proveniência e ações de escrita não integram a projeção.
+
+| Estado do backend | Rótulo da interface |
+| --- | --- |
+| SCHEDULED | Agendada |
+| RUNNING | Em execução |
+| WAITING_INPUT | Aguardando insumo |
+| WAITING_RECONCILIATION | Aguardando reconciliação |
+| SUCCEEDED | Concluída |
+| FAILED | Falhou |
+| CANCELLED | Cancelada |
+
+`CampaignPipeline` mostra a distribuição dos estados atuais dessa amostra;
+não representa histórico de transições. Embora exista histórico no repositório
+backend, ele não é devolvido por esta listagem e nenhuma timeline é criada.
+`CampaignQueue` distingue agendamento, espera/intervenção, processamento e estados
+encerrados. A elegibilidade de disparo permanece no backend: um registro listado
+não é automaticamente uma campanha ativa ou uma tarefa pronta para execução.
+
+Os filtros são exclusivamente locais à amostra já carregada e preservam a ordem
+do servidor. A atualização manual refaz apenas o GET de execuções. O hook
+`useCampaignExecutions` trata loading, sucesso, vazio confirmado, rede, HTTP,
+401/403, contrato incompatível, aborto e respostas obsoletas. Não há polling,
+operações de escrita, credenciais novas ou navegação para módulos inexistentes.
+Os indicadores FE-VISUAL.06 continuam independentes da listagem.
+
+### Acesso e validação
+
+Reutiliza o cliente HTTP e a validação de origem do FE-VISUAL.06: somente mesma
+origem HTTP loopback, `credentials: include`, `cache: no-store` e redirects
+recusados. Sem configuração compatível não há consulta. O operador autentica-se
+no console `/operations` existente, usando a origem do frontend/proxy documentado
+acima. O React não efetua login nem armazena segredos. Cada GET permanece sujeito
+ao guard e à sessão do backend.
+
+- Suíte completa: **146 testes PASS**, incluindo contratos, limite de 100,
+  ausência de dados, sete estados, desconhecidos recusados, filtros, ordenação,
+  erros, cancelamento, respostas obsoletas, retry, indicadores, hero e navegação.
+- Build e lint: PASS, sem dependências novas.
+- Inspeção de navegador em **1440×900, 1280×800, 768×1024 e 390×844**: sem
+  overflow horizontal; lista de teste com 100 registros, identificador longo,
+  pendências, filtro e foco de teclado conferidos. Componentes novos não animam
+  estados nem simulam processamento; o tratamento existente de movimento reduzido
+  e de mídia permanece preservado.
+- Fixtures visuais foram usadas somente em servidor de teste efêmero identificado
+  como **TESTE VISUAL OFFLINE**, sem alterações no app ou fixtures em produção.
+- **LIVE_VALIDATION=NO**: a origem local com proxy para o runtime existente foi
+  consultada apenas por GET; sem sessão QC autorizada não houve validação de
+  execuções operacionais reais. O contrato foi confirmado no código local.
+  O PR permanece Draft até validar sessão, runtime/entrega do backend e resposta
+  real. Os mocks de teste não constituem comprovação de integração LIVE.
+
+Filhos executados sequencialmente: F007.01 auditoria; F007.02 contrato/serviço;
+F007.03 hook; F007.04 pipeline; F007.05 fila; F007.06 testes/visual;
+F007.07 revisão e quality gate; F007.08 publicação da branch e Draft PR.
+Processamentos e publicações permanecem reservados ao FE-VISUAL.08. Não houve
+modificação de backend, operações reais, redistribuição de mídia ou deploy.

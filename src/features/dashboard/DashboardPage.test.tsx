@@ -41,8 +41,8 @@ test('hero mantém título e navegação quando o asset local não existe', () =
 test('áreas operacionais explicam a integração pendente sem simular etapas ou consultas', () => {
   render(<MemoryRouter><DashboardPage /></MemoryRouter>)
   const panels = [
-    ['Pipeline de campanhas', 'Pipeline aguardando integração'],
-    ['Fila de processamento', 'Fila ainda não consultada'],
+    ['Pipeline de campanhas', 'Estados ainda não consultados.'],
+    ['Fila e execuções', 'Nenhuma amostra de execuções disponível para exibição.'],
     ['Processamentos em andamento', 'Processamentos indisponíveis'],
     ['Publicações recentes', 'Publicações ainda não consultadas'],
   ] as const
@@ -88,9 +88,13 @@ function summary() {
 
 function configure() { config.status='configured'; config.baseUrl=window.location.origin }
 function row(label:string) { return screen.getByText(label).closest('.metric-placeholder')! as HTMLElement }
+function respondMetrics(response: () => Response | Promise<Response>, executions: unknown[] = []) {
+  vi.mocked(fetch).mockImplementation(input => String(input).endsWith('/operations/executions')
+    ? Promise.resolve(new Response(JSON.stringify(executions))) : Promise.resolve().then(response))
+}
 
 test('renders measured zeros, separate fake/live and the backend QC rate',async()=>{
-  configure(); vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(summary())))
+  configure(); respondMetrics(() => new Response(JSON.stringify(summary())))
   render(<MemoryRouter><DashboardPage /></MemoryRouter>)
   await screen.findByRole('heading',{name:'Resumo recebido'})
   expect(within(row('Execuções em processamento')).getByText('0')).toBeVisible()
@@ -106,21 +110,21 @@ test('renders measured zeros, separate fake/live and the backend QC rate',async(
 test('a missing QC denominator never renders 0 percent',async()=>{
   configure(); const value=summary();value.qcApproved=0;value.qcEvaluated=0
   Object.assign(value,{qcApprovalRate:null});value.availability.qcApprovalRate={status:'UNAVAILABLE',reason:'NO_QC_EVALUATIONS'}
-  vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify(value)))
+  respondMetrics(() => new Response(JSON.stringify(value)))
   render(<MemoryRouter><DashboardPage /></MemoryRouter>)
   await screen.findByRole('heading',{name:'Resumo recebido'})
   expect(within(row('Aprovação QC técnico V1')).queryByText(/%/)).not.toBeInTheDocument()
   expect(within(row('Aprovação QC técnico V1')).getByText(/Nenhuma avaliação técnica/)).toBeVisible()
 })
 test.each([401,403])('HTTP %i requests the existing session and performs no login mutation',async status=>{
-  configure();vi.mocked(fetch).mockResolvedValue(new Response('{}',{status}))
+  configure();respondMetrics(() => new Response('{}',{status}))
   render(<MemoryRouter><DashboardPage /></MemoryRouter>)
   await screen.findByRole('heading',{name:'Sessão não autorizada'})
   expect(screen.getByRole('link',{name:'Abrir console de autenticação existente'})).toHaveAttribute('href','/operations')
-  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(fetch).toHaveBeenCalledTimes(2)
 })
 test('loading disables retry; a subsequent retry replaces a network error',async()=>{
-  configure();vi.mocked(fetch).mockRejectedValueOnce(new Error('offline'))
+  configure();respondMetrics(() => Promise.reject(new Error('offline')))
   const user=userEvent.setup()
   render(<MemoryRouter><DashboardPage /></MemoryRouter>)
   await screen.findByRole('alert')
@@ -131,4 +135,38 @@ test('loading disables retry; a subsequent retry replaces a network error',async
   complete(new Response(JSON.stringify(summary())))
   await screen.findByRole('heading',{name:'Resumo recebido'})
   expect(screen.getByRole('button',{name:'Atualizar resumo'})).toBeEnabled()
+})
+
+test('execuções e filtros da amostra preservam indicadores globais, hero e GETs independentes', async () => {
+  configure()
+  const value = { ...summary(), runningExecutions: 157 }
+  respondMetrics(() => new Response(JSON.stringify(value)), [
+    { execution_id: 'execution_running', campaign_id: 'campaign_001', campaign_revision: 1, run_id: 'run_001', version: 1, status: 'RUNNING' },
+    { execution_id: 'execution_scheduled', campaign_id: 'campaign_001', campaign_revision: 1, run_id: 'run_002', version: 1, status: 'SCHEDULED' },
+  ])
+  const user = userEvent.setup()
+  render(<MemoryRouter><DashboardPage /></MemoryRouter>)
+  await screen.findByRole('article', { name: 'Execução execution_running' })
+  expect(within(row('Execuções em processamento')).getByText('157')).toBeVisible()
+  await user.selectOptions(screen.getByRole('combobox'), 'SCHEDULED')
+  expect(screen.queryByRole('article', { name: 'Execução execution_running' })).not.toBeInTheDocument()
+  expect(screen.getByRole('article', { name: 'Execução execution_scheduled' })).toBeVisible()
+  expect(screen.getByRole('heading', { name: /sua operação. uma nova dimensão/i })).toBeVisible()
+  expect(fetch).toHaveBeenCalledTimes(2)
+  await user.click(screen.getByRole('button', { name: 'Atualizar execuções' }))
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(3))
+  expect(vi.mocked(fetch).mock.calls.filter(([url]) => String(url).endsWith('/dashboard/summary'))).toHaveLength(1)
+  expect(vi.mocked(fetch).mock.calls.every(([, options]) => options?.method === 'GET')).toBe(true)
+})
+
+test('uma falha de sessão nas execuções não invalida os indicadores recebidos', async () => {
+  configure()
+  vi.mocked(fetch).mockImplementation(input => Promise.resolve(String(input).endsWith('/operations/executions') ? new Response('{}', { status: 403 }) : new Response(JSON.stringify(summary()))))
+  render(<MemoryRouter><DashboardPage /></MemoryRouter>)
+  await screen.findByRole('heading', { name: 'Resumo recebido' })
+  const queue = screen.getByRole('region', { name: 'Fila e execuções' })
+  expect(within(queue).getByRole('alert')).toHaveTextContent('Sessão não autorizada')
+  expect(within(queue).getByRole('link')).toHaveAttribute('href', '/operations')
+  expect(screen.queryByRole('article')).not.toBeInTheDocument()
+  expect(within(row('Publicações simuladas · FAKE')).getByText('2')).toBeVisible()
 })
