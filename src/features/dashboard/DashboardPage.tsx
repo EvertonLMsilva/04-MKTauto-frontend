@@ -1,21 +1,30 @@
+import { useState } from 'react'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { NeonPanel } from '../../components/ui/NeonPanel'
 import { NeonBadge } from '../../components/ui/NeonBadge'
 import { StatusMessage } from '../../components/ui/StatusMessage'
 import { DashboardHero } from './components/DashboardHero'
 import { MetricPlaceholder } from './components/MetricPlaceholder'
-import { OperationalEmptyState } from './components/OperationalEmptyState'
 import { NeonButton } from '../../components/ui/NeonButton'
 import { useDashboardMetrics } from './hooks/useDashboardMetrics'
 import { reasonLabels, type MetricKey } from './contracts/dashboardMetrics'
 import { useCampaignExecutions } from './hooks/useCampaignExecutions'
 import { CampaignPipeline } from './components/CampaignPipeline'
 import { CampaignQueue } from './components/CampaignQueue'
+import { ProcessingPanel } from './components/ProcessingPanel'
+import { MediaPanel } from './components/MediaPanel'
+import { RecentPublicationsPanel } from './components/RecentPublicationsPanel'
+import { useProcessingMedia } from './hooks/useProcessingMedia'
+import { useExecutionPublications } from './hooks/useExecutionPublications'
 
 export function DashboardPage() {
   useDocumentTitle('Dashboard')
   const metrics = useDashboardMetrics()
   const executions = useCampaignExecutions()
+  const [selectedId, setSelectedId] = useState('')
+  const selected = executions.data?.find(item => item.execution_id === selectedId) ?? null
+  const media = useProcessingMedia(selected?.run_id ?? null)
+  const publications = useExecutionPublications(selected?.execution_id ?? null)
   const { data } = metrics
   const detail = (key: MetricKey, description: string) => {
     const reason = data?.availability[key].reason
@@ -49,17 +58,10 @@ export function DashboardPage() {
       </div>
       <CampaignPipeline executions={executions.data} />
       <CampaignQueue executions={executions.data} status={executions.status} message={executions.message} canRefresh={executions.access === 'ready'} onRefresh={executions.retry} />
-      <div className="operational-grid operational-grid--reserved">
-        <NeonPanel title="Processamentos em andamento" eyebrow="EXECUÇÕES">
-          <OperationalEmptyState icon="processor" title="Processamentos indisponíveis">
-            Aguardando integração para acompanhar execuções reais.
-          </OperationalEmptyState>
-        </NeonPanel>
-        <NeonPanel title="Publicações recentes" eyebrow="PUBLICAÇÃO">
-          <OperationalEmptyState icon="publish" title="Publicações ainda não consultadas">
-            O histórico será exibido após a integração. Nenhuma publicação carregada.
-          </OperationalEmptyState>
-        </NeonPanel>
+      <ProcessingPanel executions={executions.data} status={executions.status} message={executions.message} selectedId={selected?.execution_id ?? ''} onSelect={setSelectedId} />
+      <div className="operational-grid monitoring-grid">
+        <MediaPanel executionId={selected?.execution_id ?? null} runId={selected?.run_id ?? null} state={media} />
+        <RecentPublicationsPanel executionId={selected?.execution_id ?? null} state={publications} />
       </div>
       <NeonPanel title="Estado de integração" className="integration-panel">
         <div className="integration-content">
