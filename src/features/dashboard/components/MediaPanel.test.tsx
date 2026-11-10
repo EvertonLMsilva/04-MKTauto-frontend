@@ -23,3 +23,14 @@ test('unauthorized response offers existing console without presenting empty dat
   expect(screen.getByRole('link')).toHaveAttribute('href', '/operations')
   expect(screen.queryByRole('list')).not.toBeInTheDocument()
 })
+
+test('full execution and pipeline identities remain readable when metadata is unavailable', () => {
+  const executionId = `execution_${'identity_'.repeat(20)}`, runId = `run_${'pipeline_'.repeat(20)}`
+  render(<MediaPanel executionId={executionId} runId={runId} state={{ ...state, status: 'incompatible', data: null, message: 'Resposta incompatível.' }} />)
+  const context = screen.getByLabelText('Vínculo das mídias')
+  expect(context).toHaveTextContent(executionId)
+  expect(context).toHaveTextContent(runId)
+  expect(screen.getByRole('alert')).toHaveTextContent('Resposta incompatível.')
+  expect(screen.queryByRole('list')).not.toBeInTheDocument()
+  expect(fetch).not.toHaveBeenCalled()
+})

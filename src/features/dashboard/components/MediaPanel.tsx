@@ -8,7 +8,10 @@ const origins = { OPERATOR_OWNED: 'Do operador', AUTHORIZED_THIRD_PARTY: 'Tercei
 export function MediaPanel({ executionId, runId, state }: { executionId: string | null; runId: string | null; state: ReturnType<typeof useProcessingMedia> }) {
   return <NeonPanel title="Mídias vinculadas" eyebrow="ATIVOS CADASTRADOS" className="monitoring-panel" action={executionId && state.access === 'ready' && <NeonButton variant="secondary" loading={state.status === 'loading'} onClick={state.retry}>Atualizar mídias</NeonButton>}>
     <p className="panel-description">Ativos cadastrados do run selecionado, sem paginação ou limite documentado. Cadastro e origem não comprovam materialização, geração ou aprovação.</p>
-    {executionId && <p className="execution-note">Execução <code>{executionId}</code><br />Pipeline run <code>{runId}</code></p>}
+    {executionId && <dl className="execution-context" aria-label="Vínculo das mídias">
+      <div><dt>Execução</dt><dd><code>{executionId}</code></dd></div>
+      <div><dt>Pipeline run</dt><dd><code>{runId}</code></dd></div>
+    </dl>}
     <div className="execution-read-state" aria-busy={state.status === 'loading'}><StatusMessage tone={['error', 'unauthorized', 'incompatible'].includes(state.status) ? 'error' : state.status === 'loading' ? 'loading' : 'info'}>{state.message}</StatusMessage>
       {state.status === 'unauthorized' && <a className="dashboard-session-link" href="/operations" target="_blank" rel="noreferrer">Autenticar consulta de mídias no console</a>}
     </div>

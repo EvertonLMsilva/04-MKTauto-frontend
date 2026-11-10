@@ -68,12 +68,16 @@ test('menu permite navegar por teclado, fecha após navegar e transfere o foco a
   expect(fetch).not.toHaveBeenCalled()
 })
 
-test('sidebar oferece apenas rotas existentes e identifica módulos futuros sem controles falsos', () => {
+test('sidebar oferece apenas rotas existentes e identifica áreas do dashboard sem controles falsos', () => {
   render(<MemoryRouter><AppRoutes /></MemoryRouter>)
   const nav = screen.getByRole('navigation', { name: 'Navegação principal' })
   expect(Array.from(nav.querySelectorAll('a')).map((link) => link.getAttribute('href'))).toEqual(['/', '/base-visual'])
-  const future = screen.getByRole('region', { name: 'MÓDULOS FUTUROS' })
-  expect(future).toHaveTextContent('Indisponíveis nesta etapa')
-  expect(future.querySelectorAll('a, button, [tabindex]').length).toBe(0)
+  const areas = screen.getByRole('region', { name: 'NO DASHBOARD' })
+  expect(areas).toHaveTextContent('Áreas de leitura operacional')
+  expect(Array.from(areas.querySelectorAll('li')).map((item) => item.textContent)).toEqual(['Campanhas', 'Pipeline', 'Mídia', 'Publicação'])
+  expect(areas).toHaveTextContent('Relatórios Indisponível')
+  expect(areas.querySelectorAll('a, button, [tabindex]').length).toBe(0)
+  expect(screen.queryByText(/integração operacional pendente/i)).not.toBeInTheDocument()
+  expect(screen.queryByText('Nenhuma conexão verificada.')).not.toBeInTheDocument()
   expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page')
 })

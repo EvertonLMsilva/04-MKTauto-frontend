@@ -677,3 +677,66 @@ o frontend preexistente na porta 5173 e os containers não foram interrompidos.
 Filhos sequenciais F009.01–F009.08: preflight, diagnóstico, proxy, sessão,
 integração, testes/visual, revisão/commit e publicação da branch com Draft PR.
 PARTIAL por runtime e autenticação pendentes; não houve merge ou início do FE-VISUAL.10.
+
+## FE-VISUAL.10 — acabamento do cockpit operacional
+
+O hero e os seis indicadores agora dividem melhor o espaço, com métricas em duas
+colunas e motivos de indisponibilidade sempre visíveis. Em 1440×900, o overview
+com a mesma amostra de validação passou de aproximadamente 720 para 462 px de
+altura. Escopo, contrato QC e data de recebimento continuam disponíveis no
+disclosure nativo “Escopo e critérios dos indicadores”.
+
+O estado da consulta e sua atualização manual aparecem antes do hero. As
+mensagens herdadas de integração pendente foram substituídas por linguagem
+neutra; sessão, carregamento, erro e resumo recebido derivam das consultas
+existentes. Sidebar mantém somente Dashboard e Base visual como rotas; as áreas
+de leitura do Dashboard são estáticas e Relatórios permanece indisponível.
+
+A seleção de execução aparece antes da lista de processamentos. As opções
+identificam estado e execução; o contexto abaixo preserva execution_id e run_id
+completos, inclusive quando o seletor nativo não comporta um identificador longo.
+Mídias e publicações também apresentam seus vínculos em listas de definição.
+Não houve mudança nos sete estados, limite de 100, ordenação, filtros locais,
+deduplicação, null, zero comprovado, separação FAKE/LIVE ou QC técnico V1.
+
+Ocultar a aba pausa o mesmo elemento de vídeo, preservando sua posição ao
+retornar. Antes, a mudança de visibilidade desmontava e recriava o elemento.
+Pausa manual, movimento reduzido e fallbacks da imagem/vídeo permanecem cobertos.
+Nenhum asset, codec, hook, serviço, contrato, endpoint ou dependência foi alterado.
+
+### Validação em 10/11/2026
+
+- **255 testes PASS** em 26 arquivos; build e lint PASS; git diff --check PASS.
+- Inspeção de 1920×1080, 1440×900, 1280×800, 1024×768, 768×1024,
+  390×844 e 360×800, sem scroll horizontal da página. IDs longos, seleção,
+  filtros, atualização manual, navegação e Base visual conferidos.
+- Teclado: Tab/Enter na navegação, Escape com retorno ao botão do menu, foco no
+  conteúdo após navegar e Enter/Espaço no disclosure com contorno visível.
+  Zoom real de 200% não ficou disponível nas ferramentas usadas; não é declarado
+  como validado.
+- QA privada com 100 registros fictícios, identificada na tela e mantida fora do
+  repositório. Conferidos carregamento, vazio confirmado, resposta incompatível,
+  erro HTTP, seleção de vínculos e distinção de conclusão FAKE/estado LIVE não
+  confirmado. Nenhuma fixture foi adicionada ao caminho operacional da aplicação.
+- Na observação local de desenvolvimento, montagem de 100 registros: 640,5 ms
+  antes (carga fria) e 375,9 ms depois (carga aquecida); imagem: 446,5/163,4 ms;
+  primeira reprodução: 1062,5/514,3 ms. São amostras em condições diferentes,
+  **não um benchmark nem prova de ganho de velocidade**. Primeiro efeito DOM do
+  filtro: 0,5/0,2 ms; não mede toda a pintura. Sem gargalo comprovado da lista,
+  não foram adicionadas virtualização ou memoizações.
+- Requisições na QA: entrada faz um GET de resumo e um de execuções; filtro
+  não faz HTTP; selecionar faz os dois GETs vinculados. Atualizações continuam
+  manuais. Renovar a fila renova os detalhes selecionados como já ocorria antes.
+- **LIVE_VALIDATION=AUTH_PENDING**: a origem operacional existente mostra sessão
+  QC não autorizada para resumo e execuções. Não houve contorno do login nem
+  consulta de detalhes com IDs inventados. Os resultados offline não comprovam
+  integração autenticada. Este fechamento deve permanecer em Draft PR até essa
+  verificação. O diagnóstico FE-VISUAL.09 acima é um registro histórico.
+- Backend preservado; nenhuma publicação, aprovação, reprocessamento ou chamada
+  paga. Mídias locais continuam disponíveis, com os mesmos hashes, ignoradas e
+  sem autorização confirmada para redistribuição. dist permanece ignorado;
+  nenhuma captura com assets privados integra o diff público.
+
+Filhos sequenciais F010.01–F010.08: diagnóstico, cockpit, painéis, navegação,
+performance, testes/visual, revisão/commit e publicação da branch/PR. Merge e
+revisão final pertencem ao usuário.

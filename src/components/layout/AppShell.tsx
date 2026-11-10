@@ -44,7 +44,7 @@ export function AppShell() {
       <AppSidebar open={menuOpen} onNavigate={handleNavigate} />
       <div className="app-workspace">
         <main ref={mainRef} id="main-content" tabIndex={-1}><Outlet /></main>
-        <footer className="workspace-footer"><span>MKTAuto <span aria-hidden="true">/</span> Cockpit local</span><span>Integração operacional pendente</span></footer>
+        <footer className="workspace-footer"><span>MKTAuto <span aria-hidden="true">/</span> Cockpit local</span><span>Consultas operacionais · atualização manual</span></footer>
       </div>
     </div>
   )

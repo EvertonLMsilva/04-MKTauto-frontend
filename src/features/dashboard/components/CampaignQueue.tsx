@@ -25,7 +25,7 @@ export function CampaignQueue({ executions, status, message, canRefresh, onRefre
   return (
     <NeonPanel title="Fila e execuções" eyebrow="AMOSTRA OPERACIONAL" className="campaign-queue" action={canRefresh && <NeonButton variant="secondary" loading={loading} onClick={onRefresh}>Atualizar execuções</NeonButton>}>
       <p className="panel-description">Execuções agendadas, em andamento, aguardando intervenção e encerradas. A elegibilidade de disparo permanece sob o backend.</p>
-      <p className="execution-note">Até {executionListLimit} execuções recentes, por atualização decrescente e depois identificador. Sem paginação ou total global. Horários em America/Sao_Paulo.</p>
+      <p id={`${filterId}-scope`} className="execution-note">Até {executionListLimit} execuções recentes, por atualização decrescente e depois identificador. Sem paginação ou total global. Horários em America/Sao_Paulo.</p>
       <div className="execution-read-state" aria-busy={loading}>
         <StatusMessage tone={error ? 'error' : loading ? 'loading' : executions ? 'success' : 'info'}>{message}</StatusMessage>
         {status === 'unauthorized' && <a className="dashboard-session-link" href="/operations" target="_blank" rel="noreferrer">Abrir console para autenticar execuções</a>}
@@ -33,7 +33,7 @@ export function CampaignQueue({ executions, status, message, canRefresh, onRefre
       <div className="execution-filters">
         <div>
           <label htmlFor={filterId}>Filtrar estados da amostra</label>
-          <select id={filterId} value={filter} onChange={event => setFilter(event.target.value)} disabled={executions === null}>
+          <select id={filterId} aria-describedby={`${filterId}-scope`} value={filter} onChange={event => setFilter(event.target.value)} disabled={executions === null}>
             <option value="all">Todos os estados da amostra</option>
             {executionStates.map(state => <option key={state} value={state}>{executionLabels[state]}</option>)}
           </select>
