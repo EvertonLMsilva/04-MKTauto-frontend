@@ -4,9 +4,10 @@ Base independente da interface React do MKTAuto. Este bootstrap entrega layout,
 navegação, tokens visuais, componentes compartilhados e um cliente HTTP preparado
 para futuras integrações com o backend NestJS.
 
-Não carrega campanhas, métricas ou publicações. Os textos de estados na página
-Base visual são amostras de componentes, identificadas como tal. Nenhuma
-autenticação, conexão com o backend ou ação operacional é simulada.
+Consulta somente indicadores históricos quando uma origem local compatível está
+configurada e a sessão QC existente autoriza a leitura. Campanhas e histórico de
+publicações ainda não são carregados. Os exemplos na Base visual são demonstrações;
+nenhuma autenticação, conexão ou ação operacional é simulada.
 
 ## Tecnologias
 
@@ -279,3 +280,74 @@ Diferenças em relação ao mockup: os braços e a cidade são uma imagem estát
 adiciona partículas decorativas independentes. Máscaras preservam contraste do
 texto; no mobile o cenário fica abaixo dos controles. O resultado não é uma
 reprodução pixel-perfect do mockup nem demonstra uma operação real.
+## Indicadores operacionais — FE-VISUAL.06
+
+O dashboard consulta exclusivamente `GET /operations/dashboard/summary`, com
+`cache: no-store`, sem polling, redirects ou operações de escrita. O retry é
+manual. O cliente HTTP compartilhado permanece com `credentials: omit`; somente
+a leitura do dashboard usa `credentials: include`, depois de validar mesma origem
+HTTP loopback. Cancelamento, desmontagem e respostas obsoletas são tratados.
+
+O contrato local NestJS é `operations-dashboard-summary/1.0.0`, definido em
+`backend/src/operations/dashboard-summary.contract.ts`. O serviço frontend valida
+JSON `unknown`: versão, timestamp ISO, escopo, unidades, disponibilidade, motivos,
+contadores inteiros não negativos e limites de QC. Respostas incompatíveis são
+recusadas, sem converter null em zero ou calcular agregados no navegador.
+
+- **Execuções em processamento:** `runningExecutions`, estado RUNNING; não é uma
+  contagem de campanhas ativas.
+- **Campanhas ativas:** indisponível, sem definição operacional nesta versão.
+- **Mídias geradas:** indisponível; a unidade atual não comprova materialização.
+- **Publicações:** `socialPublicationsFake` e `socialPublicationsLive` aparecem
+  separados. O modo não presente na fonte fica indisponível. Não há soma com
+  publicações manuais, outro banco histórico ou total combinado.
+- **QC técnico V1:** `qcApprovalRate` vem do servidor, com os contadores
+  `qcApproved`/`qcEvaluated`. Família `quality-control-report/1.0.0`, política
+  `quality-control-policy/1.0.0`; não inclui aprovação humana. Sem denominador,
+  exibe indisponibilidade, nunca 0%. Um zero disponível é um zero comprovado.
+
+### Desenvolvimento com a sessão existente
+
+A API exige `LocalQcGuard` e cookie `mkt_qc_session` HttpOnly/SameSite=Strict.
+Não colocar credenciais em `VITE_*`, localStorage, código ou cabeçalhos manuais.
+O console NestJS existente é responsável pela autenticação. Um HTTP 401/403
+orienta a abrir esse console na mesma origem e repetir somente a leitura.
+
+Exemplo **opcional** de `.env.local`, substituindo as portas pelos processos locais:
+
+```dotenv
+VITE_API_BASE_URL=http://127.0.0.1:5173
+MKTAUTO_API_PROXY_TARGET=http://127.0.0.1:3000
+```
+
+Reiniciar o Vite depois de configurar. `MKTAUTO_API_PROXY_TARGET` é configuração
+somente do servidor de desenvolvimento, aceita apenas origem loopback sem
+credenciais/caminho e não é exposta no bundle. O proxy restrito a `/operations`
+preserva Host e Origin (`changeOrigin: false`), não reescreve cookies, não segue
+redirects e não habilita WebSocket. O backend recebe a conexão loopback e o Host
+original do navegador; a validação de origem/sessão continua sob seu controle.
+Não misturar `localhost` com `127.0.0.1` nem usar portas diferentes na URL pública.
+
+Abrir `/operations` **pela origem do Vite**, autenticar-se no console existente
+com credenciais autorizadas e voltar ao dashboard. Nenhum login é executado
+automaticamente pelo frontend. A sessão é temporária; após expirar, repetir o
+login no console. O proxy não é um servidor de produção e não altera o backend.
+
+### Validação e dependências
+
+Testes automatizados usam mocks apenas nos testes: contrato, null/zero, erros,
+401/403, loading, cancelamento, retry e respostas obsoletas; mantêm cobertura do
+hero, fallback de mídia, movimento reduzido, teclado e navegação. Nenhum dado de
+fixture é servido pelo dashboard real.
+
+**Integração operacional LIVE: não validada nesta entrega.** O contrato/endpoint
+Dashboard Summary está local e ainda depende de entrega Git/PR do backend,
+disponibilidade de runtime compatível e sessão autorizada na origem comum.
+O PR frontend deve permanecer Draft até obter uma resposta real autorizada,
+comparar seus valores e motivos com os cartões e confirmar sessão/origem.
+A validação futura deve executar somente GET; não habilitar scheduler, publicar,
+provisionar banco ou alterar regras QC para contornar erros.
+
+Hero, vídeo, rotas e Design System foram preservados. Assets continuam ignorados,
+sem autorização de redistribuição confirmada. O build local copia mídias para
+`dist/`, que permanece ignorado: não publicar esse diretório nem executar deploy.
