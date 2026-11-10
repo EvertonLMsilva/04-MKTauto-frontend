@@ -4,7 +4,7 @@ import { Icon } from '../ui/Icon'
 
 export function AppHeader({ menuOpen, onToggle, menuRef }: { menuOpen: boolean; onToggle: () => void; menuRef: Ref<HTMLButtonElement> }) {
   const { pathname } = useLocation()
-  const page = pathname === '/' ? 'Dashboard' : pathname === '/base-visual' ? 'Base visual' : 'Página não encontrada'
+  const page = pathname === '/' ? 'Dashboard' : pathname === '/campanhas' ? 'Campanhas' : pathname === '/base-visual' ? 'Base visual' : 'Página não encontrada'
   return (
     <header className="app-header">
       <div className="header-leading">

@@ -740,3 +740,119 @@ Nenhum asset, codec, hook, serviço, contrato, endpoint ou dependência foi alte
 Filhos sequenciais F010.01–F010.08: diagnóstico, cockpit, painéis, navegação,
 performance, testes/visual, revisão/commit e publicação da branch/PR. Merge e
 revisão final pertencem ao usuário.
+
+## FE-FUNC.001 — Campanhas: consultas operacionais
+
+Entrega parcial em `/campanhas`, preservando `/` e `/base-visual`. A página
+consulta uma revisão conhecida e agrupa as revisões presentes na atividade
+recente. Não oferece criação, início, agendamento, aprovação ou publicação.
+Não há formulário de criação fictício; o formulário disponível faz uma consulta
+GET por identificador e revisão. Nenhum registro é criado ao abrir a página.
+
+### Contratos auditados
+
+Inspeção direcionada, somente leitura, em `23-MKTauto-main-sync`, HEAD
+`c60f0c99d2cca48fe0b24c13d986f3bd94422680`. Os controllers/contratos de campanhas
+e operações não diferem de `origin/main` disponível nessa inspeção. Os caminhos
+da tabela abaixo são relativos à raiz desse backend e não são importados pelo
+frontend.
+
+| Operação / endpoint | DTO de entrada → resposta | Autenticação / CSRF | Idempotência / modo FAKE / efeitos | Fonte backend |
+| --- | --- | --- | --- | --- |
+| GET `/operations/executions` — implementado | Sem corpo → array de projeções de execução | `LocalQcGuard`; sessão QC existente, mesma origem; GET não exige CSRF | Consulta; limite de 100 execuções por `updated_at DESC, execution_id`; não identifica o modo de publicação nem representa catálogo global | `backend/src/operations/operations.controller.ts:135`, `operations.service.ts` (`list`), `backend/src/content-operations/application/campaign-administration.ts:391`, `infrastructure/campaign.repository.ts:243` |
+| GET `/affiliate/campaigns/:campaignId/revisions/:revision` — implementado | ID e revisão positiva → `AffiliateCampaign`, schema `affiliate-campaign/1.0.0`; 404 para revisão ausente | Controller não declara guard; GET sem CSRF. Não inferir que esta consulta comprova sessão QC | Consulta de revisão imutável, sem comando mutável ou parâmetro FAKE | `backend/src/affiliate/affiliate.controller.ts:44`, `application/affiliate.service.ts` (`getCampaign`), `domain/affiliate-contracts.ts:285` |
+| POST `/affiliate/campaigns` — **não implementado no frontend** | `RegisterCampaignDto`: `{ idempotencyKey, campaign }` → `AffiliateCampaign` | Não foi comprovada proteção QC/CSRF nesse comando; controller não declara guard e não há guard global nos arquivos de bootstrap consultados | Serviço valida chave e replay, projeto e revisão; persiste campanha/recibo. Não é comando de execução FAKE | `backend/src/affiliate/affiliate.controller.ts:40`, `application/affiliate-commands.dto.ts`, `application/affiliate.service.ts:247` |
+| POST `/content-operations/campaign-executions/local` — **não implementado no frontend** | `localRequestInput`: campaignId, campaignRevision, projectVersion, requestId, requestedAt; localImage para FIXED, selectionMode/recurrence opcionais → execução/agendamento | Controller não declara guard QC; CSRF não comprovado para esse comando | Deriva briefing/run de requestId e campanha; pode configurar recorrência. `LOCAL_VALIDATION` + `LOCAL_IMAGES` não comprovam provedores gratuitos nem publicação FAKE. Efeitos persistentes | `backend/src/content-operations/campaign.controller.ts:46`, `application/native-campaign-workflow.ts:86,1013`, `application/campaign-administration.ts:113` |
+| POST `/content-operations/campaign-executions` — **não implementado no frontend** | Objeto validado por `campaignRequest` → execução agendada | Controller não declara guard QC; CSRF não comprovado | Persiste agendamento; modo de produção/publicação depende do pedido. Não há garantia FAKE/sem custo suficiente para expor a ação | `backend/src/content-operations/campaign.controller.ts:43`, `application/native-campaign-workflow.ts` (`campaignRequest`), `application/campaign-administration.ts` (`schedule`) |
+| GET/POST `/operations/session` — console existente, sem novo login | GET retorna operador/CSRF da sessão; POST recebe credencial pessoal no console | Cookie HttpOnly `mkt_qc_session`; origem local validada. Mutações autenticadas exigem `x-qc-csrf` oficial | Login é gerido pelo console. A feature não chama POST de sessão, não lê tokens e não armazena credenciais | `backend/src/operations/operations.controller.ts` (`session`, `login`), `backend/src/publishing/application/local-qc-session.ts`, `local-qc.guard.ts` |
+
+Não foi localizado GET de catálogo global no controller de campanhas afiliadas.
+`catalogCandidates(projectId)` é uma operação interna do repositório, não uma
+rota pública. Não foi convertido em endpoint fictício.
+
+O documento de campanha fornece somente schema, campaignId/revision,
+projectId, productId/productRevision, affiliateUrl, cta e disclosure. Nome,
+datas e estado da campanha não foram inventados. Datas e estados mostrados na
+atividade pertencem explicitamente a cada execução. A contagem de revisões é
+somente da amostra carregada; campanhas sem execução e registros anteriores
+podem existir. Atingir 100 gera aviso de limite, sem paginação ou total global.
+
+### Frontend e configuração
+
+- `src/features/campaigns/` separa página, componentes, contrato de revisão,
+  serviços GET, hooks e testes. Reutiliza o parser de execuções e a política de
+  mesma origem já validados no Dashboard, sem editar essa feature.
+- Respostas `unknown` são validadas antes da exibição, incluindo identidade e
+  revisão solicitadas, versão do schema e URL HTTPS sem credenciais. Valores
+  são renderizados como texto; o link de afiliado não é aberto automaticamente.
+- Estados: carregando, sucesso, amostra vazia comprovada, revisão ausente,
+  401/403, rede/HTTP, resposta incompatível e configuração indisponível. Retry
+  e atualização são manuais. Troca de seleção/origem e desmontagem cancelam
+  requisições; respostas obsoletas são descartadas e dados anteriores ocultados.
+- Use a configuração local já documentada: `VITE_API_BASE_URL` com a origem
+  pública deste frontend e `MKTAUTO_API_PROXY_TARGET` com o backend loopback.
+  Nenhuma credencial pertence a `VITE_*`. O plugin Vite de Campanhas acrescenta
+  somente GET do caminho exato de revisão; POST/PATCH/DELETE/HEAD desse caminho
+  não são encaminhados. Rotas mutáveis de affiliate/content-operations não
+  foram acrescentadas. O proxy existente de `/operations` permanece preservado.
+- As consultas usam cookies existentes (`credentials: include`), `no-store` e
+  `redirect: error`. Em 401/403, abra o console QC da mesma origem, entre
+  manualmente e tente novamente. A consulta pública de revisão também funciona
+  quando a listagem protegida está sem sessão. Não há login alternativo.
+- O retorno ao Dashboard permite selecionar o identificador da execução e
+  consultar mídias/pipeline/publicações. Não promete seleção automática por URL.
+
+### Dependências e limites da entrega
+
+Criação depende de um comando backend oficialmente autorizado com QC/CSRF,
+pré-requisitos de projeto/produto e idempotência confirmados para o operador.
+Início FAKE depende adicionalmente de garantia por comando de modo FAKE e de
+ausência de provedores pagos, além do fluxo humano de confirmação. Idempotência
+existente no serviço não substitui autorização. Enviar um header CSRF a uma
+rota sem validação desse header não resolve essa lacuna.
+
+Não foram implementados nem testados com escrita operacional: criação,
+confirmação mutável, duplo clique de comando, replay de criação ou execução,
+CSRF de comando, agendamento e publicação. Esses itens permanecem bloqueados,
+não são declarados aprovados por testes de GET. Não houve chamada a API paga,
+publicação LIVE, alteração backend, Docker, VHDX, banco ou mídia privada.
+
+### Validação e filhos
+
+- `npm run test`: **327 PASS**, 29 arquivos. Inclui a suíte anterior do
+  Dashboard, navegação por teclado, required/formato da consulta, lista e
+  detalhe, limite 100, filtros locais, 401/403, 404/503, rede, contrato inválido,
+  sessão expirada no refresh, cancelamento e resposta obsoleta. As fixtures são
+  sintéticas e exclusivas dos testes; não integram dados da aplicação.
+- `npm run build`: **PASS**. `npm run lint`: **PASS**, sem avisos.
+  `git diff --check`: **PASS**. Sem dependências novas.
+- Proxy validado por HTTP com servidor isolado de teste: caminho, query, cookies,
+  host/origin preservados, redirects não seguidos, erros preservados e métodos
+  mutáveis bloqueados no novo caminho. Não consulta o backend nos testes.
+- Visual por Computer Use: **PASS** em 1920×1080, 1440×900, 1280×800,
+  768×1024, 390×844 e 360×800 (dimensões CSS medidas). Sem overflow horizontal
+  no documento/body; cartões, texto longo de 80 caracteres, detalhes e menu
+  móvel conferidos. Atividade de sucesso validada em servidor GET isolado com
+  dados sintéticos, separado do runtime operacional; capturas não publicadas.
+- Leitura operacional real: **PASS** para uma revisão existente pelo formulário
+  através do proxy local. Listagem operacional: **AUTH_PENDING**, HTTP 401
+  corretamente representado. Não houve extração de cookies ou credenciais,
+  contorno de QC ou mutação. Escrita operacional: **NOT_EXECUTED**.
+
+Registro dos filhos (caminhos frontend relativos a este repositório):
+
+| Filho / STATUS | FILES_READ | FILES_CREATED / FILES_MODIFIED | TESTS / EVIDENCE | BLOCKERS / NEXT_CHILD |
+| --- | --- | --- | --- | --- |
+| F001.01 DONE | AGENTS, package/lock, config, HTTP, Dashboard e fontes backend da tabela | Nenhum / nenhum | Git limpo; master esperado por fast-forward; branch de entrega; contratos acima | Escritas dependem do backend / F001.02 |
+| F001.02 DONE | Rotas, shell, UI Neon, tokens e hooks existentes | Nenhum nesta etapa / nenhum | Feature de leitura independente definida, sem criar campos ou endpoints | Nenhum para leitura / F001.03 |
+| F001.03 DONE | Contratos GET auditados e parser de execuções | CampaignsPage.tsx; components/CampaignActivity, CampaignDetails, CampaignLookup, CampaignReadState.tsx; contracts/campaign.ts; services/campaigns.ts; hooks/useCampaignRead.ts / AppRoutes, AppSidebar, AppHeader e layout.css | Consulta por revisão e atividade limitada; erro não vira vazio | Catálogo global ausente, escopo explícito / F001.04 |
+| F001.04 PARTIAL | RegisterCampaignDto, AffiliateController/Service/contratos, sessão QC | Nenhum / README | Auditoria concluída; formulário de criação não exposto | Autorização QC/CSRF do comando não comprovada / F001.05 |
+| F001.05 PARTIAL | CampaignController/Administration, NativeCampaignWorkflow, LocalQcGuard/session | Nenhum / README | Nenhuma requisição mutável implementada ou enviada | Comando FAKE autorizado e sem custo não comprovado / F001.06 |
+| F001.06 DONE | Feature, App e configuração Vite | CampaignsPage.test.tsx; contracts/campaign.test.ts; services/campaigns.test.ts; test/fixtures.ts / App.test.tsx, vite.config.ts/test.ts, layout.css | 327 testes; visual nas seis resoluções; GET real e QA isolada | Listagem operacional autenticada pendente / F001.07 |
+| F001.07 gates PASS | Diff completo e allowlist | Nenhum / README | Build/lint/testes aprovados; revisão do diff e commit autorizado no fechamento | Nenhum gate técnico pendente / F001.08 |
+| F001.08 fechamento Draft | Diff, refs e metadados do PR | Nenhum / nenhum | SHA remoto, número/URL e arquivos confirmados no relatório final/PR | Criação/execução e leitura autenticada pendentes / revisão humana do PR |
+
+Um único commit funcional é suficiente para código, testes e documentação deste
+recorte. Não criar segundo commit artificial. O estado final permanece PARTIAL
+e o PR deve ser Draft até resolver as dependências descritas. Revisão e merge
+pertencem ao usuário; FE-FUNC.002 não é iniciado automaticamente.

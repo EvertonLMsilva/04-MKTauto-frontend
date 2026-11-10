@@ -1,4 +1,4 @@
-import { defineConfig, loadEnv, type ProxyOptions } from 'vite'
+import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ mode }) => {
@@ -15,8 +15,16 @@ export default defineConfig(({ mode }) => {
     ...options,
     bypass: request => request.method === 'GET' ? undefined : false,
   }
+  // Keep campaign routing as a feature extension of the existing proxy policy.
+  // The resolved Vite server merges this exact GET route with the core routes.
+  const campaignRevisionReads: Plugin = {
+    name: 'mktauto-campaign-revision-reads',
+    config: () => ({ server: { proxy: {
+      '^/affiliate/campaigns/[a-z0-9][a-z0-9_-]{2,79}/revisions/[1-9][0-9]*(?:\\?|$)': readOnly,
+    } } }),
+  }
   return {
-    plugins: [react()],
+    plugins: [react(), campaignRevisionReads],
     server: { proxy: {
       '^/operations(?:/|\\?|$)': options,
       // Exact asset-list endpoint; hero files under /media/ remain static and local.
