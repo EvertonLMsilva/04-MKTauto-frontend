@@ -72,9 +72,14 @@ test('preserves network and cancellation errors', async () => {
 test('the optional dev proxy preserves origin and host without exposing credentials or enabling redirects', async () => {
   vi.stubEnv('MKTAUTO_API_PROXY_TARGET', 'http://127.0.0.1:3000')
   const resolved = await viteConfig({ command: 'serve', mode: 'test' })
-  expect(resolved.server?.proxy).toEqual({ '/operations': {
+  const options = {
     target: 'http://127.0.0.1:3000', changeOrigin: false, ws: false, followRedirects: false, proxyTimeout: 5000,
-  } })
+  }
+  expect(resolved.server?.proxy).toEqual({
+    '^/operations(?:/|\\?|$)': options,
+    '^/media/assets(?:\\?|$)': { ...options, bypass: expect.any(Function) },
+    '^/publishing/executions/[^/?]+/destinations(?:\\?|$)': { ...options, bypass: expect.any(Function) },
+  })
 })
 test.each(['https://external.example', 'http://user:secret@localhost:3000', 'http://127.0.0.1:3000/path'])('proxy rejects an incompatible target (%s)', target => {
   vi.stubEnv('MKTAUTO_API_PROXY_TARGET', target)

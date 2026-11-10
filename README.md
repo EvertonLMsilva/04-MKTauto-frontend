@@ -527,3 +527,153 @@ sem fixtures: indisponibilidade real, seleção desabilitada e nenhum ativo fict
 
 Entrega em Draft PR: pendem sessão/origem QC funcional, rota de resumo no runtime,
 roteamento same-origin das duas consultas novas e validação LIVE de seus dados.
+
+## FE-VISUAL.09 — roteamento local e diagnóstico operacional
+
+O Vite agora encaminha os três escopos necessários sem interceptar os arquivos
+estáticos do hero. Não houve alteração de componentes, hooks, contratos ou
+serviços de produção, pois não se comprovou defeito nesses arquivos.
+
+| Regra de proxy | Escopo |
+| --- | --- |
+| `^/operations(?:/|\?|$)` | Console existente, sessão e endpoints de operações; comportamento de autenticação preservado |
+| `^/media/assets(?:\?|$)` | Somente GET da lista de ativos, preservando a query pipelineRunId |
+| `^/publishing/executions/[^/?]+/destinations(?:\?|$)` | Somente GET de destinos da execução selecionada |
+
+Os novos proxies recusam métodos diferentes de GET sem encaminhá-los. Não há
+proxy genérico de `/media`, de `/publishing` ou de destinos externos. Target
+aceito somente em localhost, 127.0.0.1 ou [::1], HTTP(S), sem credenciais, prefixo
+de caminho, query ou fragmento. Host, Origin e cookies permanecem preservados;
+changeOrigin=false, ws=false, followRedirects=false e proxyTimeout=5000.
+
+### Executar o frontend localmente
+
+Exemplo PowerShell, **após confirmar a porta do backend**. As variáveis abaixo
+pertencem somente a este terminal e ao processo de desenvolvimento; nenhum
+segredo é necessário no frontend:
+
+```powershell
+Set-Location D:\04-Projetos\23-MKTauto-front
+$env:MKTAUTO_API_PROXY_TARGET = 'http://127.0.0.1:3123'
+$env:VITE_API_BASE_URL = 'http://127.0.0.1:5187'
+npm run dev -- --port 5187 --strictPort
+```
+
+Esse exemplo **não torna a bridge Docker compatível com LocalQcGuard**. Uma
+URL loopback no Windows não garante um socket loopback dentro do container.
+Sem MKTAUTO_API_PROXY_TARGET, não há proxy. Sem VITE_API_BASE_URL, a interface
+permanece sem consulta configurada. Também é possível usar `.env.local`, já
+ignorado, com essas duas configurações públicas, preservando valores existentes.
+Não alternar localhost/127.0.0.1 entre frontend, console e API: origens e cookies
+são distintos. Não colocar tokens, identidade QC ou configuração privada do
+backend em VITE_*, localStorage, logs ou arquivos do frontend.
+
+Depois de resolver as pendências de runtime/topologia abaixo, o **operador** deve
+abrir `/operations` na mesma origem do frontend e usar o console QC existente.
+Nenhuma credencial foi inserida automaticamente nesta tarefa. O cookie
+mkt_qc_session é HttpOnly, SameSite=Strict, Path=/, com validade de 30 minutos e
+Secure em HTTPS. GET dispensa CSRF; Host/Origin e endereço do socket continuam
+validados pelo backend. Não há bypass, cookie falso ou autenticação alternativa.
+
+### Causas comprovadas no runtime de 10/11/2026
+
+A porta Windows 127.0.0.1:3123 pertence ao Docker Desktop e encaminha à porta
+3000 do container NestJS (`node backend/dist/main.js`, diretório `/app`). O
+bootstrap auditado não declara prefixo HTTP adicional.
+
+O container inicial, 6c9d94d96b70, usava mktauto:integrated-76fb27f. Durante a
+auditoria ele foi substituído **por outro trabalho**, sem intervenção desta
+tarefa. A verificação foi repetida no container 8c3216e7a3df, iniciado em
+2026-11-10T05:36:45Z, imagem mktauto:fb-finish-hotfix-110-9ff856d,
+sha256:b54fdde3bb07737ab9e0b7e4b081db129008742cfcdc737a0287e83001c5050b.
+Labels indicam revisão base 76fb27f28866faca95cf51dec04f8689d1f8a944,
+hotfix e0ed63bafd7f2f9a19995112efc3d5e298d41466 e source tree
+9ff856d6dc9995f77fd5c575e81be5d7c5514920. Não se confunde essa imagem composta
+com o HEAD do checkout backend.
+
+**403 — QC_LOCAL_ACCESS_REQUIRED:** conexão de prova mantida pela porta publicada
+aparece em `/proc/net/tcp6` do container como remoto IPv4-mapped 192.168.0.1,
+destino 192.168.0.2:3000. O LocalQcIdentity.authenticate compilado aceita apenas
+127.0.0.1, ::1 ou ::ffff:127.0.0.1 e recusa esse peer antes de validar credenciais.
+O GET de sessão também valida o socket primeiro. O resultado é igual para
+localhost e 127.0.0.1 no Windows e através do Vite; não é resolvido trocando Host,
+forjando X-Forwarded-For ou renovando cookie. Nenhum desses contornos foi feito.
+
+**404 — resumo:** a rota `/operations/dashboard/summary` existe no controlador
+TypeScript local, mas está ausente no controlador compilado de ambas as imagens
+inspecionadas e no registro de rotas do NestJS em execução. O GET direto retorna
+Cannot GET; pelo Vite também retorna 404. É incompatibilidade entre fonte e
+artefato/runtime, independente da recusa QC, não um endpoint a ser renomeado no
+frontend. Execuções, assets e destinos constam no registro de rotas sem prefixo.
+
+### Resultados HTTP e limites da validação LIVE
+
+| Consulta real | Resultado |
+| --- | --- |
+| GET /operations/executions | 403 QC_LOCAL_ACCESS_REQUIRED — AUTH_PENDING |
+| GET /operations/session | 403 QC_LOCAL_ACCESS_REQUIRED — AUTH_PENDING |
+| GET /operations/dashboard/summary | 404 — RUNTIME_PENDING |
+| GET /media/assets, sem identificador | 400 INVALID_IDENTIFIER; comprova roteamento e presença da rota, não dados de ativos |
+| GET /media/mktauto-robotic-city-original.png | 200 image/png, 599620 bytes; SHA-256 igual ao arquivo local |
+| GET /media/mktauto-blue-neon-particles-web.mp4 | 200 video/mp4, 5782494 bytes; SHA-256 igual ao arquivo local |
+
+LIVE_VALIDATION=AUTH_PENDING + RUNTIME_PENDING. Sem execuções autorizadas, nenhum
+run_id ou execution_id foi inventado para consultar mídia/publicação. Seus dados
+permanecem **não testáveis por autenticação**, sem concluir que a base está vazia.
+NOT_TESTABLE_NO_DATA será aplicável somente após uma resposta autorizada sem
+registros. O proxy de destinos foi validado offline com HTTP local isolado, e a
+rota foi confirmada nos logs do runtime; não se declara validação LIVE dos dados.
+
+No navegador, o frontend na origem 127.0.0.1:5187 usa o proxy real, preserva
+indisponibilidade, seleção desabilitada e ausência de números/dados inventados.
+Não houve fixtures nessa verificação visual, login, publicação, escrita
+operacional ou chamada paga. O servidor temporário desta tarefa foi encerrado;
+o frontend preexistente na porta 5173 e os containers não foram interrompidos.
+
+### Procedimento pendente sob responsabilidade do backend/ambiente
+
+1. Em tarefa backend separada e autorizada, preparar um artefato que inclua o
+   Dashboard Summary e sua ligação no módulo, preservando a configuração,
+   bancos e volumes já aprovados. Confirmar o registro da rota no startup.
+2. Resolver a topologia para que a requisição chegue com socket loopback real
+   ao NestJS, sem remover o guard nem confiar em headers encaminhados como
+   substitutos do endereço. A porta Docker publicada atual não satisfaz isso.
+3. Para uma execução nativa aprovada, os scripts verificados em backend/package.json
+   são `npm run build` (nest build) e `npm run start`
+   (node --env-file-if-exists=../.env dist/main.js), executados na pasta backend.
+   Devem ser usados apenas pelo responsável, com porta livre e configuração
+   privada/banco autorizados já validados. Nenhum build, start, migração,
+   provisionamento ou reinício backend foi executado aqui.
+4. Apontar MKTAUTO_API_PROXY_TARGET à porta confirmada, abrir o console na origem
+   do frontend para autenticação humana e repetir os quatro GETs. Comparar JSONs
+   autorizados aos parsers existentes e às telas. Se não houver dados, registrar
+   NOT_TESTABLE_NO_DATA para os detalhes, preservando null e zeros comprovados.
+
+### Gates e isolamento
+
+- 59 testes focados de proxy/configuração PASS; **250 testes globais PASS** em
+  26 arquivos. Build PASS, lint PASS sem avisos e git diff --check PASS.
+- 35 testes novos verificam HTTP local entre Vite e um servidor isolado de teste:
+  paths/query, Host/Origin/cookie, loopback, bloqueio de métodos nos novos GETs,
+  escopos excluídos, 401/403/404, HTML inesperado e ausência de follow redirect.
+  Os marcadores estáticos de teste não leem nem redistribuem os binários privados.
+- Um teste anterior de dashboardMetrics esperava exatamente um proxy
+  `/operations`. Sua expectativa foi alinhada aos três escopos e manteve todas
+  as verificações de segurança. Nenhuma validação de contrato foi enfraquecida.
+- Testes existentes preservam JSON inválido, contrato incompatível, sessão
+  expirada, abort, respostas obsoletas, retry, vínculos e FAKE/LIVE. Dados reais
+  autorizados não foram substituídos por mocks para declarar LIVE.
+- Visual: 1440×900, 1280×800, 768×1024 e 390×844, sem overflow horizontal da página
+  ou painéis. Hero, partículas sem áudio, navegação móvel e retry conferidos.
+  Nenhuma mensagem error/warn foi capturada no console durante a inspeção.
+- Dependências locais estavam incompletas. npm ci --ignore-scripts encontrou
+  EPERM em binding nativo em uso; a restauração por
+  npm install --ignore-scripts --no-save --no-audit --no-fund concluiu, mantendo
+  package.json e package-lock.json idênticos ao HEAD. Não houve dependência nova,
+  execução de postinstall ou encerramento do processo preexistente.
+- Mídias locais continuam ignoradas, sem licença confirmada de redistribuição.
+  Nenhum binário, segredo, dist ou dependência integra o commit.
+
+Filhos sequenciais F009.01–F009.08: preflight, diagnóstico, proxy, sessão,
+integração, testes/visual, revisão/commit e publicação da branch com Draft PR.
+PARTIAL por runtime e autenticação pendentes; não houve merge ou início do FE-VISUAL.10.
