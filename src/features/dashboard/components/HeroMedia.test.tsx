@@ -127,14 +127,17 @@ test('aba oculta interrompe o vídeo e a escolha de pausa permanece ao voltar', 
   const user = userEvent.setup()
   const { container, unmount } = render(<HeroMedia />)
   fireEvent.load(container.querySelector('img')!)
-  fireEvent.playing(container.querySelector('video')!)
+  const video = container.querySelector('video')!
+  fireEvent.playing(video)
   await user.click(screen.getByRole('button', { name: 'Pausar partículas' }))
   const callsBeforeHide = vi.mocked(HTMLMediaElement.prototype.play).mock.calls.length
   act(() => {
     visibility = 'hidden'
     document.dispatchEvent(new Event('visibilitychange'))
   })
-  expect(container.querySelector('video')).toBeNull()
+  expect(container.querySelector('video')).toBe(video)
+  expect(video).not.toHaveAttribute('autoplay')
+  expect(video.pause).toHaveBeenCalled()
   act(() => {
     visibility = 'visible'
     document.dispatchEvent(new Event('visibilitychange'))
@@ -151,4 +154,30 @@ test('sem matchMedia a composição permanece estática por segurança', () => {
   fireEvent.load(container.querySelector('img')!)
   expect(container.querySelector('video')).toBeNull()
   expect(container.querySelector('img')).toBeInTheDocument()
+})
+
+test('visibility changes pause and resume the same video without losing its playback position', () => {
+  const { container } = render(<HeroMedia />)
+  fireEvent.load(container.querySelector('img')!)
+  const video = container.querySelector('video')!
+  video.currentTime = 7.5
+  fireEvent.playing(video)
+  const initialPlayCalls = vi.mocked(HTMLMediaElement.prototype.play).mock.calls.length
+  act(() => {
+    visibility = 'hidden'
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  expect(container.querySelector('video')).toBe(video)
+  expect(video).not.toHaveAttribute('autoplay')
+  expect(video.pause).toHaveBeenCalled()
+  expect(video.currentTime).toBe(7.5)
+  act(() => {
+    visibility = 'visible'
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  expect(container.querySelector('video')).toBe(video)
+  expect(video.currentTime).toBe(7.5)
+  expect(video).toHaveAttribute('autoplay')
+  expect(video.play).toHaveBeenCalledTimes(initialPlayCalls + 1)
+  expect(fetch).not.toHaveBeenCalled()
 })
