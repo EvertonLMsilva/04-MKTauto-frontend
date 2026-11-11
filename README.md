@@ -743,6 +743,11 @@ revisão final pertencem ao usuário.
 
 ## FE-FUNC.001 — Campanhas: consultas operacionais
 
+Registro histórico do primeiro recorte de leitura. O fechamento abaixo integra
+os novos comandos do PR backend #153 e substitui as pendências de implementação
+de cadastro/execução descritas nesta seção. A homologação operacional continua
+separada dos testes offline.
+
 Entrega parcial em `/campanhas`, preservando `/` e `/base-visual`. A página
 consulta uma revisão conhecida e agrupa as revisões presentes na atividade
 recente. Não oferece criação, início, agendamento, aprovação ou publicação.
@@ -856,3 +861,115 @@ Um único commit funcional é suficiente para código, testes e documentação d
 recorte. Não criar segundo commit artificial. O estado final permanece PARTIAL
 e o PR deve ser Draft até resolver as dependências descritas. Revisão e merge
 pertencem ao usuário; FE-FUNC.002 não é iniciado automaticamente.
+
+## FE-FUNC.001-CLOSURE — gestão FAKE autorizada
+
+A página `/campanhas` preserva a consulta de revisão e a atividade recente e
+acrescenta cadastro, preparação FAKE, estado controlado e retomada confirmada.
+Dashboard, fila operacional, navegação e transporte HTTP existentes permanecem
+preservados. Sem novas dependências ou mudanças de proxy: o namespace
+`/operations` já encaminha os caminhos oficiais e o header CSRF.
+
+### Contratos oficiais auditados
+
+Backend PR #153 integrado na `main` (`43c96833afc1703188faa5278ffe7a717585c163`).
+O checkout consultado, `abaea796ffff593b7a35dda334ff7a5f906e91c9`, possui o mesmo
+conteúdo desse merge. Foram lidos somente os contratos/controlador/serviço/guard
+`fake-campaign-command`, seu E2E, `affiliate-contracts.ts`, `local-qc-session.ts`
+e `operations.controller.ts`. Nenhum arquivo ou runtime backend foi alterado.
+
+| Método e caminho | Entrada / resultado validado |
+| --- | --- |
+| GET `/operations/session` | `operatorId` válido e CSRF base64url de 43 caracteres |
+| POST `/operations/campaign-commands/campaigns` | `mode: FAKE`, `confirmation: true`, chave estável e `affiliate-campaign/1.0.0`; retorno `CAMPAIGN_REGISTERED` com o documento exato enviado |
+| POST `/operations/campaign-commands/executions/fake` | Confirmação, revisão, versão do projeto, `requestId`/data estáveis e imagem local documentada; retorno `EXECUTION_ACCEPTED` |
+| GET `/operations/campaign-commands/executions/:id` | `EXECUTION_STATE` para o UUID solicitado |
+| POST `/operations/campaign-commands/executions/:id/resume` | Confirmação e `expectedVersion` da última consulta; retorno `EXECUTION_STATE` da mesma execução e política |
+
+Envelopes usam `fake-campaign-command-result/1.0.0`. A política
+`campaign-fake-policy/1.0.0` deve corresponder à execução, campanha, revisão, run
+e horário, com `providers: LOCAL_ONLY` e `publication: DISABLED`. Na preparação,
+também são conferidos o comando, o horário solicitado e o operador da sessão.
+Nenhum estado de publicação é inferido: aceitação/persistência não é conclusão.
+
+### Uso e proteções
+
+1. Entre manualmente no console `/operations` na mesma origem local e use
+   **Verificar sessão QC**. Não há login alternativo. Cada comando verifica
+   novamente a sessão; uma URL ou sessão válida não comprova opt-in/permissão.
+2. Abra **Cadastrar campanha**, preencha os oito campos oficiais e confirme a
+   revisão. Projeto e produto devem existir; a interface não fabrica registros.
+   Após `CAMPAIGN_REGISTERED`, é possível consultar a revisão cadastrada.
+3. Abra **Preparar execução FAKE**. Informe uma referência de imagem existente,
+   SHA-256 real, origem permitida, base de uso e evidências oficiais fornecidas
+   pelo operador. Não existe upload. As evidências começam vazias; o frontend
+   não preenche concessões fictícias. São exigidas autorizações correspondentes
+   de uso comercial/processamento local e duas confirmações independentes.
+4. Consulte o UUID real no painel de estado e atualize manualmente. Retomada
+   exige uma consulta atual, estado `WAITING_INPUT`, `WAITING_RECONCILIATION`
+   ou `FAILED` e confirmação vinculada à identidade/versão. QC e CTC continuam
+   sob autoridade do backend; retomar não é aprovar.
+
+Cookies são enviados com `credentials: include`, `no-store` e `redirect: error`.
+O cookie HttpOnly não é lido. CSRF permanece em memória e segue em `x-qc-csrf`;
+não é exibido nem persistido em storage, ambiente, arquivos ou fixtures reais.
+Origin é definido pelo navegador, sem header forjado. Mudanças de contexto e
+desmontagem cancelam consultas; respostas obsoletas não são aplicadas.
+
+Chaves de cadastro e `requestId`/data são gerados uma vez por intenção válida,
+preservados nos rerenders/envios manuais da mesma intenção e bloqueados durante
+envio. Não há POST ao montar, polling ou retry mutável automático. Timeout,
+resposta incompatível após POST e falha incerta suspendem outros comandos até
+reconciliação. Cadastro exige consulta do documento correspondente. Preparação
+exige o UUID real e política com o `commandId` original; sem identidade comprovada
+permanece bloqueada. Não há endpoint inventado de busca por `requestId`.
+Conflito 409 ou resposta ambígua da retomada dispara GET, exige versão real e
+nova confirmação antes de outro POST. Nenhuma nova execução contorna falhas.
+
+Sessão ausente/expirada, falta de permissão, CSRF inválido, opt-in desabilitado,
+runtime ausente, rede, contrato incompatível e respostas ambíguas têm mensagens
+distintas. O backend decide definitivamente autorização e direitos documentais.
+**Toda publicação social, inclusive simulada, está desabilitada nesta política.**
+Não há botão social, modo LIVE ou seleção de provedor pago neste fluxo.
+
+### Evidências e pendências operacionais
+
+- Gates: testes focados e globais, build, lint sem avisos e `git diff --check`
+  aprovados; contagem final registrada no PR e relatório de fechamento.
+- Testes cobrem sessão, autorização/opt-in/CSRF, DTO, confirmação, idempotência,
+  duplo clique, ambiguidade, direitos da imagem, política, leitura, retomada,
+  409 e ausência de reenvio automático. As suítes anteriores de Dashboard,
+  revisão de campanha, fila e proxy continuam incluídas.
+- Computer Use: **PASS** em **1920×1080, 1440×900, 1280×800, 768×1024,
+  390×844 e 360×800**, com dimensões CSS medidas e nenhum overflow horizontal
+  no documento/body. Conferidos formulários abertos, erros por campo, foco
+  visível/Tab, direitos, política e aceitação sem conclusão. Interface e HTTP
+  foram exercitados contra servidor de teste sintético isolado, sem banco e
+  sem conexão com o backend operacional; esse servidor foi encerrado.
+- Sonda GET real pelo proxy local: sessão **401 `QC_SESSION_EXPIRED`** e rota
+  de execução controlada **404 `Cannot GET`**, sem código de domínio. Isso
+  comprova **RUNTIME_PENDING** neste ambiente; Git atualizado não comprova
+  runtime compatível. OPTIONS genérico não foi usado como prova de suporte.
+- **BACKEND_OPT_IN_PENDING**: não verificado. As flags privadas
+  `QC_FAKE_COMMANDS_ENABLED` e `QC_FAKE_COMMAND_OPERATORS` são responsabilidade
+  do ambiente backend. Nenhuma flag, credencial ou configuração foi criada,
+  lida de arquivo privado ou alterada nesta entrega. Não houve reinício.
+- Homologação autenticada das mutações: **NOT_EXECUTED**. Depende de runtime
+  compatível e ambiente isolado autorizado, com confirmação humana. Nenhum
+  cadastro, execução ou retomada foi enviado a banco operacional. Nenhuma
+  publicação LIVE/social, API paga, mudança de Docker, VHDX ou mídia privada.
+
+| Filho | Resultado |
+| --- | --- |
+| FC001.01 | DONE: preflight, fast-forward seguro, branch e contratos oficiais auditados |
+| FC001.02 | DONE: sessão QC, CSRF em memória e transporte local existente |
+| FC001.03 | DONE: cadastro validado, confirmação, idempotência e consulta da revisão |
+| FC001.04 | DONE: preparação com referência/direitos documentais e política FAKE |
+| FC001.05 | DONE: consulta manual, confirmação por versão e retomada sem retry |
+| FC001.06 | PARTIAL: testes offline e visual aprovados; homologação autenticada pendente |
+| FC001.07 | Gates e commit específico registrados no relatório/PR |
+| FC001.08 | Um único Draft PR contra master; URL/SHA no relatório de fechamento |
+
+Entrega **PARTIAL** enquanto faltar a homologação autenticada das mutações.
+O Draft PR permite revisão do código completo e das evidências offline.
+Merge permanece humano. `MKTAUTO-FE-FUNC-002` não foi iniciado.

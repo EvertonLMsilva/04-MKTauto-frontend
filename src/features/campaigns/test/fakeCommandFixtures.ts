@@ -1,0 +1,10 @@
+// Synthetic test data only; never imported by production components.
+import { campaignFixture } from './fixtures'
+export const sessionFixture = { operatorId: 'operator_test', csrfToken: 't'.repeat(43) }
+export const executionIdFixture = '8b57b5de-f883-4879-a30f-fd06b3821f61'
+export const evidenceFixture = [{ id: 'right_test', kind: 'MEDIA_USAGE_RIGHT', sourceRef: 'fixture:owned-test-image', recordedAt: '2026-11-10T12:00:00.000Z', mediaAuthorization: { mediaRef: 'media_test', contentHash: 'a'.repeat(64), commercialUse: 'GRANTED', processing: 'GRANTED', localProcessing: true, externalProviders: [] } }]
+export const fakeRequestFixture = { campaignId: campaignFixture.campaignId, campaignRevision: 1, projectVersion: 1, requestId: 'fc_run_test', requestedAt: '2026-11-10T12:00:00.000Z', localImage: { mediaReference: 'media_test', contentHash: 'a'.repeat(64), origin: 'OPERATOR_OWNED' as const, provider: null, rights: { usageBasis: 'OWNED' as const, commercialUseAllowed: true as const, evidence: evidenceFixture } } }
+export function controlledExecutionFixture(result: 'EXECUTION_ACCEPTED' | 'EXECUTION_STATE' = 'EXECUTION_STATE') {
+  return { schemaVersion: 'fake-campaign-command-result/1.0.0', mode: 'FAKE', result, execution: { executionId: executionIdFixture, campaignId: campaignFixture.campaignId, campaignRevision: 1, runId: 'run_controlled_fake_v1_test', status: 'WAITING_INPUT', version: 3, scheduledAt: fakeRequestFixture.requestedAt, createdAt: fakeRequestFixture.requestedAt, updatedAt: fakeRequestFixture.requestedAt }, policy: { schemaVersion: 'campaign-fake-policy/1.0.0', mode: 'FAKE', commandId: fakeRequestFixture.requestId, actorId: sessionFixture.operatorId, campaignId: campaignFixture.campaignId, campaignRevision: 1, runId: 'run_controlled_fake_v1_test', scheduledAt: fakeRequestFixture.requestedAt, requestHash: 'b'.repeat(64), providers: 'LOCAL_ONLY', publication: 'DISABLED' } }
+}
+export const registrationFixture = { schemaVersion: 'fake-campaign-command-result/1.0.0', mode: 'FAKE', result: 'CAMPAIGN_REGISTERED', campaign: campaignFixture }
