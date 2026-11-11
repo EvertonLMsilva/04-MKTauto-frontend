@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { apiConfig, type ApiConfig } from '../../config/env'
 import { NeonPanel } from '../../components/ui/NeonPanel'
 import { NeonBadge } from '../../components/ui/NeonBadge'
-import { NeonButton } from '../../components/ui/NeonButton'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import type { CampaignQuery } from './contracts/campaign'
 import { useCampaignRevision, useRecentActivity } from './hooks/useCampaignRead'
@@ -10,6 +9,7 @@ import { CampaignActivity } from './components/CampaignActivity'
 import { CampaignDetails } from './components/CampaignDetails'
 import { CampaignLookup } from './components/CampaignLookup'
 import { CampaignReadState } from './components/CampaignReadState'
+import { CampaignCommandCenter } from './components/CampaignCommandCenter'
 
 export function CampaignsPage({ config = apiConfig, origin = window.location.origin }: { config?: ApiConfig; origin?: string }) {
   useDocumentTitle('Campanhas')
@@ -40,11 +40,7 @@ export function CampaignsPage({ config = apiConfig, origin = window.location.ori
           {activity.data && activity.data.length > 0 && <CampaignActivity executions={activity.data} onSelect={select} />}
         </NeonPanel>
       </div>
-      <NeonPanel title="Criação e execução" eyebrow="DISPONIBILIDADE">
-        <p>Criação de campanhas e início FAKE aguardam integração com autorização QC, proteção de sessão e garantia de execução sem serviços pagos. Essas ações ainda não estão disponíveis nesta página.</p>
-        <p className="campaign-note">Para consultar mídias, pipeline e publicações, abra o Dashboard e selecione a execução pelo identificador exibido aqui.</p>
-        <NeonButton to="/" variant="secondary">Consultar resultados no Dashboard</NeonButton>
-      </NeonPanel>
+      <CampaignCommandCenter key={`${origin}:${config.baseUrl}`} config={config} origin={origin} onSelect={select} />
     </div>
   )
 }

@@ -328,6 +328,31 @@ main:focus { outline-offset: calc(-1 * var(--focus-width)); }
 .campaign-executions { display: grid; gap: var(--space-4); list-style: none; padding: 0; margin-top: var(--space-5); }
 .campaign-executions > li { padding-top: var(--space-4); border-top: var(--border-width) solid var(--color-border-subtle); }
 .campaign-empty { margin: var(--space-5) 0; color: var(--color-muted); }
+/* Authorized campaign commands: explicit confirmations and manual reconciliation. */
+.command-section { min-width: 0; margin: var(--space-5) 0; padding-top: var(--space-5); border-top: var(--border-width) solid var(--color-border); }
+.command-section summary { cursor: pointer; padding: var(--space-3) 0; font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+.command-section h3, .command-section h4 { font-size: var(--text-sm); }
+.command-section fieldset { min-width: 0; padding: 0; margin: 0; border: 0; }
+.command-section fieldset:disabled { opacity: 0.65; }
+.command-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); margin: var(--space-4) 0; }
+.command-fields > div { min-width: 0; }
+.command-field-wide { grid-column: 1 / -1; }
+.command-section textarea, .command-section select { display: block; width: 100%; min-width: 0; max-width: 100%; min-height: var(--control-height); padding: var(--space-3); border: var(--border-width) solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); color: var(--color-text); font: inherit; font-size: var(--text-sm); }
+.command-section textarea { resize: vertical; }
+.command-section textarea[aria-invalid="true"], .command-section select[aria-invalid="true"] { border-color: var(--color-error); }
+.command-section :is(textarea, select, summary):focus-visible { outline: var(--focus-width) solid var(--focus-color); outline-offset: var(--focus-offset); }
+.campaigns-page .command-check { display: flex; align-items: flex-start; gap: var(--space-3); margin: var(--space-5) 0; line-height: var(--line-body); }
+.campaigns-page .command-check input { width: 1.15rem; min-height: 1.15rem; height: 1.15rem; flex: 0 0 1.15rem; margin-top: 0.1rem; padding: 0; accent-color: var(--color-accent); }
+.command-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-4) 0; }
+.command-session { margin: var(--space-5) 0; padding: var(--space-4); border: var(--border-width) solid var(--color-border); border-radius: var(--radius-md); background: var(--surface-soft); }
+.command-section .status-message { margin: var(--space-4) 0; }
+.command-lookup { display: grid; gap: var(--space-3); margin: var(--space-4) 0; }
+.command-lookup > div { min-width: 0; }
+.controlled-execution { margin: var(--space-4) 0; padding: var(--space-4); border: var(--border-width) solid var(--color-border); border-radius: var(--radius-md); background: var(--surface-soft); overflow-wrap: anywhere; }
+.controlled-execution dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.controlled-execution dl > div { min-width: 0; }
+.command-resume { margin-top: var(--space-5); }
+@media (max-width: 560px) { .command-fields, .controlled-execution dl { grid-template-columns: minmax(0, 1fr); } .command-session, .controlled-execution { padding: var(--space-3); } }
 @media (max-width: 1200px) { .campaigns-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 560px) {
   .campaigns-intro { flex-direction: column; }
