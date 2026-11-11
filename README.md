@@ -973,3 +973,99 @@ Não há botão social, modo LIVE ou seleção de provedor pago neste fluxo.
 Entrega **PARTIAL** enquanto faltar a homologação autenticada das mutações.
 O Draft PR permite revisão do código completo e das evidências offline.
 Merge permanece humano. `MKTAUTO-FE-FUNC-002` não foi iniciado.
+
+## Mídia — FE-FUNC.002
+
+A rota `/midias` consulta execuções existentes, seu roteiro e as mídias registradas
+no mesmo run. Oferece seleção nas até 100 execuções recentes e consulta por ID.
+Lista e detalhes têm atualização manual, sem polling. O estado `SCHEDULED`
+continua agendado; QC técnico `PASS` e prévia pronta não significam aprovação
+humana, execução concluída ou autorização de publicação.
+
+### Contratos e autorização
+
+- `GET /operations/executions` e `GET /operations/executions/:id`: sessão QC
+  existente; detalhe projetado de `OperationsService.detail`, sem inventar uma
+  versão de envelope. Valida identidade da execução, run, estado e revisão.
+- `script/1.0.0` e `script/2.0.0`: narração original, idioma, formato, revisão e
+  duração estimada, com vínculo ao run. Ausência é exibida como ausência.
+- `GET /media/assets?pipelineRunId=...`: metadados validados e vinculados ao run.
+  Caminhos, referências privadas, evidências de direitos, configurações TTS e
+  URLs fornecidas pelo payload não são exibidos nem usados como fontes.
+- `GET /operations/executions/:id/narration.wav`: carregamento manual habilitado
+  quando `narrationAvailable` é verdadeiro. O backend confere a identidade do
+  áudio autorizado, roteiro e execução.
+- `GET /operations/executions/:id/final.mp4`: prévia habilitada somente com
+  `PREVIEW`, `BURN`, `QC`, `ready=true`, QC `PASS` e identidade/hash do render
+  consistentes. A própria rota verifica novamente a liberação técnica e o
+  arquivo. Aprovação humana permanece uma decisão distinta no backend.
+- `GET /operations/executions/:id/final.mp4?download=1`: somente no clique em
+  **Baixar MP4 autorizado**, com autorização e formato novamente verificados.
+- A leitura atual não fornece `referenceId` autorizado para os arquivos de
+  revisão. Esses players permanecem indisponíveis; nenhum ID é fabricado e
+  nenhum POST de preparação de contexto é executado.
+
+A API precisa usar a mesma origem loopback do React, sem prefixo de caminho.
+O proxy existente `/operations` já suporta os arquivos; o proxy exato de
+`/media/assets` suporta os metadados. A configuração Vite não foi alterada.
+Faça login manual no console `/operations` da **mesma origem**, se necessário.
+O cookie HttpOnly existente acompanha os GETs com `credentials: include`.
+Não há coleta de senha, cookie, token ou CSRF por este módulo de leitura.
+
+401 (sessão ausente/expirada), 403 (permissão), 404 (recurso/rota), bloqueio,
+indisponibilidade, rede e contrato incompatível têm mensagens distintas.
+Um erro HTTP não é apresentado como ausência de mídia.
+
+### Reprodução e limites
+
+WAV e MP4 só são carregados após ação explícita, sem autoplay ou geração de voz.
+O cliente HTTP compartilhado é somente JSON e permanece inalterado; o adaptador
+binário desta feature mantém a mesma política de GET autenticado, `no-store`
+e `redirect: error`, conferindo status e Content-Type antes de criar uma URL
+Blob temporária. Isso permite classificar erros de autenticação antes do player.
+O arquivo completo fica em memória durante a reprodução; arquivos grandes têm
+esse custo de memória e tempo de carregamento. Não há cópia para `public/`,
+storage, cache da aplicação ou Git.
+
+Players HTML5 têm controles nativos, vídeo em área vertical com `object-fit:
+contain` e pausa por `IntersectionObserver` e ao ocultar a aba. Em navegadores
+sem `IntersectionObserver`, a pausa ao ocultar a aba continua disponível.
+Troca/atualização da execução e mudança de origem removem o player, pausam,
+revogam a URL e cancelam pedidos. Respostas antigas são descartadas. O download
+é separado e o nome local é fixo (`video-final.mp4`). Não existem comandos de
+aprovação, edição, publicação, geração ou retomada nesta página.
+
+### Validação e roteiro manual
+
+Gates de código: **476 testes aprovados em 39 arquivos**, incluindo **65 testes
+focados** em Mídia/App; build e lint sem avisos aprovados. Vitest usa somente
+contratos e bytes sintéticos; cobre rota/menu, erros HTTP,
+vínculos de execução/run/render, resposta obsoleta, sessão, ausência de mídia,
+players, pausa, falha de reprodução e download explícito. As suítes globais,
+TypeScript/build, lint e `git diff --check` compõem os gates de entrega.
+Nenhum navegador ou computador foi automatizado nesta task.
+
+**MANUAL_TEST_REQUIRED: YES.** A validação visual, codecs reais e homologação
+autenticada dependem do operador. Confirme a origem frontend ativa antes de
+abrir `/midias`; não use outra origem para o login QC. No ambiente H001, a
+origem `http://localhost:51666` foi confirmada nesta entrega por HTTP: `/` e
+`/midias` retornaram 200, a configuração pública da API aponta para essa mesma
+origem e o módulo de rotas servido inclui Mídia. A sonda sem credenciais de
+`/operations/session` retornou 401 `QC_SESSION_EXPIRED`, sem acessar sessão do
+navegador. Isso não comprova integração autenticada ou arquivo MP4 disponível.
+
+1. Abra o frontend e faça login manual em `/operations`, se solicitado.
+2. Abra **Mídia**, selecione uma execução existente e confira estado/roteiro.
+3. Carregue e reproduza a narração, se disponível.
+4. Se a rota liberar MP4, carregue, reproduza, role a página para verificar a
+   pausa e teste o download explícito. Não aprove nem publique nada.
+5. Confira a mensagem de indisponibilidade em execução sem MP4; troque de
+   execução e verifique que o conteúdo anterior desaparece.
+6. Confira navegação, foco por teclado e layout no desktop e celular.
+7. Informe `PASS` ou `FAIL`, com execução testada e motivo de eventual falha.
+
+O MP4 H001 não é presumido disponível por existir um artefato em disco. Sem uma
+execução com arquivo autorizado comprovado, registrar
+`MEDIA_PREVIEW_NOT_TESTABLE_NO_ARTIFACT`, sem gerar mídia para concluir a task.
+Runtime, banco, configuração privada e backend permanecem inalterados.
+Merge é humano; `MKTAUTO-FE-FUNC-003` não foi iniciado.
